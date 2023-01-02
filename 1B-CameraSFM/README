@@ -1,0 +1,47 @@
+The dataset.txt file contains:
+ - camera poses (lines denoted by KF)
+ - keypoints in camera image (lines denoted by F)
+ 
+These lines contain the camera id (first number), the GT camera pose (second 6 numbers) and the estimate of the previous step 1A (last 6 numbers).
+ 
+Be carefull don't use the groundtruth, but use the estimate (last 6 numbers).
+
+The order is the following:
+- camera pose
+- set of keypoints belonging to the camera pose above
+
+The keypoint entry contains information about: 
+	- first number, progressive id of the keypoint in the image
+	- second number, unique identifier good for data assocition :D
+	- third number, direction vector (it's the inverse projection of the keypoint). Skip the inverse projection and use direction vector for the essential matrix.
+	
+Evaluation of your poses:
+Since the dataset recording doesn't start at the origin, evaluate your solution comparing it with the gt using the delta between poses.
+
+For example, suppose we have two associated poses:
+KF 0 x x x a  b  c
+KF 1 x x x a' b' c'
+
+rotation:
+- compute the delta rotation between the two poses, R_delta = R(a,b,c)^T  * R(a',b',c')
+- compare it with delta of your solution in this way trace(eye(3) - R_delta^T * R_delta_gt)
+
+translation (solution up to scale):
+- compute the ratio between estimated translation and gt translation and check if it is the same for all the pose pairs
+	- compute the delta: R(a,b,c)^T * ([x';y';z']-[x;y;z])
+	- compute the norm
+	- do the same for the estimate
+	- compute the ratio
+
+Evaluation of your map:
+- refer to GT_landmarks.txt, your estimate is up to rotation, translation and scale. 
+- use Sim(3) ICP to estimate a Sim(3) between your map estimate and the map gt
+- compute the whole RMSE   
+
+
+BA check
+There is an additional file if you want to check your BA step called input_BA.txt. 
+You can use it to check your BA algorithm independently. 
+
+
+
