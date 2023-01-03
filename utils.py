@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 class Dataset():
 
@@ -16,7 +17,7 @@ class Dataset():
         # keep track of how many cameras you have
         self.n_cameras = -1
 
-        # for each camera append a dict {kpoint_id->direction}
+        # for each camera add a dict {kpoint_id->direction}
         self.observed_keypoints = {}
 
         self._load()
@@ -74,17 +75,27 @@ class Dataset():
 
     def _add_keypoint_to_camera(self, idx, line):
         # register the observed keypoint in the relative camera dictionary
-        self.camera_dict = self.observed_keypoints[idx]
+        camera_dict = self.observed_keypoints[idx]
 
         kpoint_id = int(line[2])
         direction = np.array(line[3:], dtype=Dataset.dtype)
-        self.camera_dict[kpoint_id] = direction
+        camera_dict[kpoint_id] = direction
 
         return kpoint_id
 
- 
+    def get_pose(self, i, gt=False)->np.ndarray:
+        if gt:
+            tr = self.camera_poses_gt[i,:3]
+            rot = self.camera_poses_gt[i,3:Dataset.pose_size]
+        else:
+            tr = self.camera_poses[i,:3]
+            rot = self.camera_poses[i,3:Dataset.pose_size]
 
-    def feature_overlap(self, i, j):
+        return (tr, R.from_euler("xyz", rot, degrees=False))
+
+
+
+    def feature_overlap(self, i, j)->int: # i,j are camera indexes
         # https://stackoverflow.com/questions/18554012/intersecting-two-dictionaries
         overlapping_features = self.observed_keypoints[i].keys() & self.observed_keypoints[j].keys()
         return len(overlapping_features)
