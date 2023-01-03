@@ -95,7 +95,33 @@ class Dataset():
 
 
 
-    def feature_overlap(self, i, j)->int: # i,j are camera indexes
+    def feature_overlap(self, i, j): # i,j are camera indexes
         # https://stackoverflow.com/questions/18554012/intersecting-two-dictionaries
         overlapping_features = self.observed_keypoints[i].keys() & self.observed_keypoints[j].keys()
-        return len(overlapping_features)
+        return overlapping_features
+
+
+# estimate the essential matrix between two cameras
+# given 8 correspondences
+def eight_point( points_i: np.ndarray, points_j: np.ndarray):
+    # points: array of shape (n,3)
+    assert points_i.shape == (8,3)
+    assert points_j.shape == (8,3)
+
+    H = np.zeros((9,9))
+    for p in range(8):
+        pi = points_i[p,:] / points_i[p,2]
+        pj = points_j[p,:] /  points_j[p,2]
+        A =  np.array([
+            pi[0]*pj[0], pi[0]*pj[1], pi[0]*pj[2], 
+            pi[1]*pj[0], pi[1]*pj[1], pi[1]*pj[2], 
+            pi[2]*pj[0], pi[2]*pj[1], pi[2]*pj[2]
+        ])
+        H += np.outer(A,A)
+
+    _, _, Vt = np.linalg.svd(H, full_matrices=True, hermitian=True)
+    e = Vt[-1,:]
+
+    E = e.reshape((3,3))
+
+    return E
