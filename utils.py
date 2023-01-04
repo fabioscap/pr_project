@@ -100,18 +100,19 @@ class Dataset():
         overlapping_features = self.observed_keypoints[i].keys() & self.observed_keypoints[j].keys()
         return overlapping_features
 
-
 # estimate the essential matrix between two cameras
 # given 8 correspondences
 def eight_point( points_i: np.ndarray, points_j: np.ndarray):
-    # points: array of shape (n,3)
     assert points_i.shape == (8,3)
     assert points_j.shape == (8,3)
 
+    return eight_point_LS(points_i, points_j)
+
+def eight_point_LS( points_i: np.ndarray, points_j: np.ndarray):
     H = np.zeros((9,9))
-    for p in range(8):
-        pi = points_i[p,:] / points_i[p,2]
-        pj = points_j[p,:] /  points_j[p,2]
+    for p in range(points_i.shape[0]):
+        pi = points_i[p,:] 
+        pj = points_j[p,:] 
         A =  np.array([
             pi[0]*pj[0], pi[0]*pj[1], pi[0]*pj[2], 
             pi[1]*pj[0], pi[1]*pj[1], pi[1]*pj[2], 
@@ -120,8 +121,41 @@ def eight_point( points_i: np.ndarray, points_j: np.ndarray):
         H += np.outer(A,A)
 
     _, _, Vt = np.linalg.svd(H, full_matrices=True, hermitian=True)
-    e = Vt[-1,:]
+    e = Vt[-1,:] # eigvector of the smallest singular value
 
     E = e.reshape((3,3))
 
+    # TODO enforce singular values are (s, s, 0)
+
     return E
+
+def decompose_E(E):
+    assert(E.shape == (3,3))
+
+    _, S, Vt = np.linalg.svd(E, full_matrices=True)
+
+    # rearranging matrix
+    W = np.array([
+        [0.0, 1.0, 0.0],
+        [-1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0]
+    ], dtype=np.float32)
+    skew_t = Vt.T@np.diag(S)@W.T@Vt
+
+    t = unskew(skew_t)
+
+    if t[2] < 0:
+        t*=-1.0
+    t/= np.linalg.norm(t)
+
+    return None, t
+
+def skew(t):
+    return np.array([
+        [0.0,  -t[2], t[1]],
+        [t[2],  0.0, -t[0]],
+        [-t[1], t[0], 0.0]
+    ], dtype=np.float32)
+
+def unskew(s):
+    return np.array([s[2,1],s[0,2],s[1,0]])
