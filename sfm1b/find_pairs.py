@@ -20,6 +20,7 @@ class Pair():
 
         self.E = self._compute_E()
 
+        # don't care for R
         _, self.t_ij = decompose_E(self.E)
 
         self.t_ij
@@ -54,6 +55,6 @@ def find_pairs(dataset: Dataset,
                 p = Pair(i,j, overlap, dataset)
                 pairs.append(p)
 
-    print(pairs)
+    return pairs
 
 

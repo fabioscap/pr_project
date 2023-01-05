@@ -85,14 +85,19 @@ class Dataset():
 
     def get_pose(self, i, gt=False)->np.ndarray:
         if gt:
-            tr = self.camera_poses_gt[i,:3]
+            t = self.camera_poses_gt[i,:3]
             rot = self.camera_poses_gt[i,3:Dataset.pose_size]
         else:
-            tr = self.camera_poses[i,:3]
+            t = self.camera_poses[i,:3]
             rot = self.camera_poses[i,3:Dataset.pose_size]
 
-        return (tr, R.from_euler("xyz", rot, degrees=False))
+        return (t, R.from_euler("xyz", rot, degrees=False).as_matrix())
 
+    def set_pose(self, i, t=None, rot=None):
+        if t is not None:
+            self.camera_poses[i,:3] = t
+        if rot is not None:
+            self.camera_poses[i,3:Dataset.pose_size] = R.from_matrix(rot).as_euler("xyz")
 
 
     def feature_overlap(self, i, j): # i,j are camera indexes
@@ -147,7 +152,8 @@ def decompose_E(E):
     if t[2] < 0:
         t*=-1.0
     t/= np.linalg.norm(t)
-
+     
+    # no need to extract R also
     return None, t
 
 def skew(t):

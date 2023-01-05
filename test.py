@@ -1,5 +1,6 @@
 from utils import Dataset, eight_point
 from sfm1b.translation_init import TranslationInit
+from sfm1b.find_pairs import find_pairs
 import numpy as np
 
 def test_dataset(d):
@@ -35,6 +36,7 @@ def test_eight_point(d: Dataset):
     p2_8 = p2[idxes][0:8,:]
     E_ = eight_point(p1_8, p2_8)
 
+
     for i in idxes:
         # both should be low for inliers
         print(p2[i,:]@E@p1[i,:], p1[i,:]@E_@p2[i,:])
@@ -42,5 +44,6 @@ def test_eight_point(d: Dataset):
 if __name__ == "__main__":
     path = "./1B-CameraSFM/dataset.txt"
     d = Dataset(path)
-    test_dataset(d)
-    test_eight_point(d)
+
+    pairs = find_pairs(d, min_overlap=35)
+    t = TranslationInit(d,pairs)
