@@ -6,16 +6,22 @@ class Dataset():
     pose_size = 6
     dtype = np.float32
 
-    def __init__(self, path: str, max_cameras=100):
-        self.path = path
+    def __init__(self, camera_path: str, landmark_path: str, max_cameras=100):
+        self.camera_path = camera_path
+        self.landmark_path = landmark_path
         self.max_cameras = max_cameras
-        
+
         self.camera_poses = np.zeros((max_cameras, Dataset.pose_size), 
                                       dtype=Dataset.dtype)
         self.camera_poses_gt = np.zeros_like(self.camera_poses)
-        
+    
+        self.landmark_poses = {}
+        self.landmark_poses_gt = {}
+
         # keep track of how many cameras you have
         self.n_cameras = -1
+        # keep track of how many cameras you have
+        self.n_landmarks = -1
 
         # for each camera add a dict {kpoint_id->direction}
         self.observed_keypoints = {}
@@ -24,7 +30,7 @@ class Dataset():
 
     def _load(self):
 
-        with open(self.path, 'r') as dataset_file:
+        with open(self.camera_path, 'r') as dataset_file:
             line = Dataset._preprocess_line(dataset_file.readline())
 
             while line != []:
@@ -38,6 +44,16 @@ class Dataset():
                     raise Exception("First value must be a camera [KF] or a keypoint [F].")
 
                 line = Dataset._preprocess_line(dataset_file.readline())
+        
+        with open(self.landmark_path, 'r') as landmark_file:
+            line = Dataset._preprocess_line(landmark_file.readline())
+
+            while line != []:
+                assert line[0] == "L:"
+                landmark_id = line[1]
+                landmark_pose = np.array(line[2:], dtype=Dataset.dtype)
+                self.landmark_poses_gt[landmark_id] = landmark_pose
+                line = Dataset._preprocess_line(landmark_file.readline())
 
 
     @staticmethod
@@ -83,7 +99,7 @@ class Dataset():
 
         return kpoint_id
 
-    def get_pose(self, i, gt=False)->np.ndarray:
+    def get_pose(self, i, gt=False)->tuple[np.ndarray, np.ndarray]:
         if gt:
             t = self.camera_poses_gt[i,:3]
             rot = self.camera_poses_gt[i,3:Dataset.pose_size]
