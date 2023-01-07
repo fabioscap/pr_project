@@ -4,6 +4,7 @@ import numpy as np
 
 # initialize the translation by doing least squares
 # with the error function Ri'(ti-tj) x t_ij
+# it is a linear constraint
 class TranslationInit():
 
     def __init__(self, dataset: Dataset, 
@@ -30,6 +31,7 @@ class TranslationInit():
             J_i = s_p@R_i.T
             J_j = -J_i
 
+            # only the ith and jth block are non zero
             J_p[:,3*pair.i:3*pair.i+3] = J_i
             J_p[:,3*pair.j:3*pair.j+3] = J_j
             
