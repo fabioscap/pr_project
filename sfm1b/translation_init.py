@@ -14,12 +14,15 @@ class TranslationInit():
 
         self.n = self.dataset.n_cameras
         self.H = np.zeros((3*self.n,3*self.n), dtype=dataset.dtype)
+        self.b = np.zeros(self.H.shape[0], dtype=dataset.dtype)
 
-        self._build_H()
+        self.t = np.random.rand(3*self.n)
+
+        self._build_H_b()
         self._solve()
         self._update_poses()
 
-    def _build_H(self):
+    def _build_H_b(self):
         
         # each pair provides a measurement t_ij
         for pair in self.pairs:
@@ -35,34 +38,50 @@ class TranslationInit():
             J_p[:,3*pair.i:3*pair.i+3] = J_i
             J_p[:,3*pair.j:3*pair.j+3] = J_j
             
+            error = J_j@(self.t[3*pair.j:3*pair.j+3]-self.t[3*pair.i:3*pair.i+3])
+
             self.H += J_p.T@J_p
+            self.b += J_p.T@error
         
     def _solve(self):
         # H should have 4 singular values close to zero
         # one for the scale ambiguity, the others for the global translation
-        # U,S,Vt = np.linalg.svd(self.H,hermitian=True)
-        # print(S)
+        # _,S,_ = np.linalg.svd(self.H,hermitian=True)
+        # print(S[-6:])
+
+        # scale dof:
+        large_number = 1e5
+
+        pair = self.pairs[0]
+        _, R_i = self.dataset.get_pose(pair.i)
+        t_ij = pair.t_ij
+        t_j = self.t[3*pair.j:3*pair.j+3]
+        t_i = self.t[3*pair.i:3*pair.i+3]
+
+        # add a constraint t_ij = Ri'(t_j-t_i)
+        # this enforces the scale together with the direction
+        error = R_i.T@(t_j-t_i)-t_ij
+        J_p = np.zeros((3,3*self.n))
+        J_j = R_i.T
+        J_i = -J_j
+        J_p[:,3*pair.i:3*pair.i+3] = J_i
+        J_p[:,3*pair.j:3*pair.j+3] = J_j
+
+        self.H += J_p.T@J_p*large_number
+        self.b += J_p.T@error*large_number
 
         # solve 3 degrees by fixing the first camera in (0,0,0)
-        self.H_fixed = self.H[3:,3:]
-        #U,S,Vt = np.linalg.svd(self.H_fixed,hermitian=True)
-        #print(S)
+        self.H_ = self.H[3:,3:]
+        self.b_ = self.b[3:]
+        self.t_ = self.t[3:]
+        
+        solution = np.linalg.solve(self.H_, -self.b_)
+        self.t_ += solution
 
-        # how to solve scale ambiguity?
-        # 1) add a constraint t_ij = Ri'(t_j-t_i)
-        # 2) enforce ||t_j-t_i|| = k impose a global scale
-        # those choices make a b vector appear
+        self.t[3:] = self.t_
 
-        # 3) choose the eigenvector corresponding to the
-        # unique zero singular value left
+        return self.t
 
-        U,S,Vt = np.linalg.svd(self.H_fixed,hermitian=True)
-        self.t = np.concatenate((np.zeros(shape=(3,)),Vt[-1,:])) # eigvector of the smallest singular value
-
-        # t is a very long vector of norm 1 so it's elements are very small
-        # scale it a bit
-        self.t /= np.min(np.abs(self.t[3:]))
-    
     def _update_poses(self):
         # update the poses on the dataset with this initial estimate
         for id in range(self.n):
