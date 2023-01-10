@@ -145,10 +145,10 @@ def eight_point_LS( points_i: np.ndarray, points_j: np.ndarray):
     e = Vt[-1,:] # eigvector of the smallest singular value
 
     E = e.reshape((3,3))
-
+    E/=E[2,2]
     # TODO enforce singular values are (s, s, 0)
 
-    return E
+    return E, None
 
 def decompose_E(E):
     assert(E.shape == (3,3))
