@@ -1,7 +1,8 @@
 # find pairs between images, then extract their 
 # essential matrix. From the matrix get the relative translation
 # (rotation already done in 1a) 
-from utils import Dataset, eight_point_LS, decompose_E
+from utils import Dataset, decompose_E
+from .eight_point_ransac import ransac,ransac_opencv, eight_point_LS
 import numpy as np
 
 class Pair():
@@ -9,7 +10,7 @@ class Pair():
                        j, 
                        features, 
                        d:Dataset, 
-                       E_proc = eight_point_LS # skip ransac for now
+                       E_proc = eight_point_LS
                        ):
         self.i = i
         self.j = j
@@ -18,13 +19,14 @@ class Pair():
         self.E_proc = E_proc
         self.d = d
 
-        self.E = self._compute_E()
+        self.E, self.inliers = self._compute_E()
 
         # don't care for R
         _, self.t_ij = decompose_E(self.E)
 
         self.t_ij
 
+        # TODO take into account in/outliers for landmark triangulation?
 
     def _compute_E(self):
         p1 = np.zeros((len(self.features),3))
@@ -52,6 +54,7 @@ def find_pairs(dataset: Dataset,
         for j in range(i+1, dataset.n_cameras):
             overlap = dataset.feature_overlap(i,j)
             if len(overlap) >= min_overlap:
+                # print(f"found pair {i}, {j}")
                 p = Pair(i,j, overlap, dataset)
                 pairs.append(p)
 

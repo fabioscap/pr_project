@@ -17,7 +17,7 @@ class TranslationInit():
         self.b = np.zeros(self.H.shape[0], dtype=dataset.dtype)
 
         self.t = np.random.rand(3*self.n)
-
+        
         self._build_H_b()
         self._solve()
         self._update_poses()
@@ -26,7 +26,7 @@ class TranslationInit():
         
         # each pair provides a measurement t_ij
         for pair in self.pairs:
-            _, R_i = self.dataset.get_pose(pair.i)
+            _, R_i = self.dataset.get_camera_pose(pair.i)
             s_p = skew(pair.t_ij)
             
             J_p = np.zeros((3,3*self.n))
@@ -53,7 +53,7 @@ class TranslationInit():
         large_number = 1e5
 
         pair = self.pairs[0]
-        _, R_i = self.dataset.get_pose(pair.i)
+        _, R_i = self.dataset.get_camera_pose(pair.i)
         t_ij = pair.t_ij
         t_j = self.t[3*pair.j:3*pair.j+3]
         t_i = self.t[3*pair.i:3*pair.i+3]
@@ -85,6 +85,6 @@ class TranslationInit():
     def _update_poses(self):
         # update the poses on the dataset with this initial estimate
         for id in range(self.n):
-            self.dataset.set_pose(id, t=self.t[3*id:3*id+3])
+            self.dataset.set_camera_pose(id, t=self.t[3*id:3*id+3])
         
 

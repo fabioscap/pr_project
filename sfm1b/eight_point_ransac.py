@@ -87,7 +87,7 @@ def ransac_opencv(p1: np.ndarray,
                                       prob=prob, maxIters=max_iters)
     # cv2 returns a boolean array mask, extract the indexes from that
     idxes = np.arange(p1.shape[0])
-    inliers = idxes[_inliers]
+    inliers = [i for i in idxes if _inliers[i] == 1]
 
     return E, inliers
 
