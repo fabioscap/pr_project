@@ -1,13 +1,13 @@
-from utils import Dataset, eight_point, decompose_E, skew
+from utils import Dataset, eight_point, decompose_E, skew, v2t, t2v, generate_fake_data
+import viz
 from sfm1b.translation_init import TranslationInit
 from sfm1b.find_pairs import find_pairs
-from sfm1b.eight_point_ransac import ransac
+from sfm1b.eight_point_ransac import ransac, ransac_opencv
+from sfm1b.bundle_adjustment import BA
 import numpy as np
 
-def test_dataset(d):
+def test_dataset(d: Dataset):
     assert d.n_cameras == 98
-
-    (tr,rot) = d.get_pose(65, gt=True)
 
 def test_eight_point(d: Dataset):
     i = 11
@@ -33,7 +33,7 @@ def test_eight_point(d: Dataset):
 
 def test_ransac(d: Dataset):
     i = 0
-    j = 12
+    j = 2
     # id of overlapping features
     features = list(d.feature_overlap(i,j))
     features.sort()
@@ -44,10 +44,7 @@ def test_ransac(d: Dataset):
     for p in range(len(features)):
         p1[p:] = d.observed_keypoints[i][features[p]]
         p2[p:] = d.observed_keypoints[j][features[p]]
-    E_, inliers = ransac(p1, p2, threshold=1e-3)
-    
-    print(len(inliers))
-    print(E_)
+    E_, inliers = ransac_opencv(p1, p2, threshold=1e-3)
 
     #import cv2
     # cv2 wants 2D points, divide by z
@@ -66,10 +63,10 @@ def eval_solutions(d: Dataset):
     translation_ratio = []
     for i in range(d.n_cameras):
         for j in range(i+1, d.n_cameras):
-            t_i, R_i = d.get_pose(i)
-            t_j, R_j = d.get_pose(j)
-            t_i_gt, R_i_gt = d.get_pose(i,gt=True)
-            t_j_gt, R_j_gt = d.get_pose(j,gt=True)
+            t_i, R_i = d.get_camera_pose(i)
+            t_j, R_j = d.get_camera_pose(j)
+            t_i_gt, R_i_gt = d.get_camera_pose(i,gt=True)
+            t_j_gt, R_j_gt = d.get_camera_pose(j,gt=True)
 
             R_delta = R_i.T @ R_j
             R_delta_gt = R_i_gt.T @ R_j_gt
@@ -99,15 +96,25 @@ def eval_solutions(d: Dataset):
     translation_ratio = np.array(translation_ratio)
     # numbers should be equal with low std
     print(f"translation ratios: {np.mean(translation_ratio, axis=0)} +- {np.std(translation_ratio, axis=0)}")
-    
+ 
 
 if __name__ == "__main__":
     path = "./1B-CameraSFM/dataset.txt"
     landmark_path = "./1B-CameraSFM/GT_landmarks.txt"
     BA_path = "./1B-CameraSFM/input_BA.txt" 
+    generate_fake_data("./fake_data", 10, 100)
+    # d = Dataset("./fake_data/dataset.txt", "./fake_data/GT_landmarks.txt") 
     d = Dataset(path, landmark_path)
-    #test_ransac(d)
-    pairs = find_pairs(d, min_overlap=35)
-    t = TranslationInit(d,pairs)
+    #test_dataset(d)
+    # test_ransac(d)
+    pairs = find_pairs(d, min_overlap=1)
+    #eval_solutions(d)
+    
+    # t = TranslationInit(d,pairs)
 
-    eval_solutions(d)
+    #eval_solutions(d)
+    b = BA(d, 10)
+    b._pre()
+    b._build_H_b()
+    
+    viz.visualize_H(b.H)
