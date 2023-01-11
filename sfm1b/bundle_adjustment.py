@@ -18,7 +18,8 @@ class BA():
     # landmarks need a map from id to state
 
     def __init__(self, d: Dataset, 
-                       n_iters: int):
+                       n_iters: int,
+                       damping= 10.0):
         self.d = d
 
         self.chi_stats = []
@@ -27,8 +28,6 @@ class BA():
 
         self.Xc = np.zeros((d.n_cameras, 4,4), dtype=d.dtype)
         self.Xl = np.zeros((d.n_landmarks,3), dtype=d.dtype)
-
-        self.measurements = {}
 
         self.state_dim = 6*d.n_cameras+3*d.n_landmarks
         self.delta_x = np.zeros(self.state_dim)
@@ -39,6 +38,8 @@ class BA():
         self.H = np.zeros((self.state_dim, self.state_dim), dtype=self.d.dtype)
         self.b = np.zeros((self.state_dim), dtype=self.H.dtype)
 
+        self.damping = damping
+
     def _pre(self):
 
         # build the state to id vector for landmarks
@@ -46,24 +47,32 @@ class BA():
         for i, l_i in zip(range(self.d.n_landmarks), self.d.landmark_poses.keys()):
             self.landmark_map[l_i] = i
             self.landmark_map_inverse[i] = l_i
+            # TODO replace with triangulated points
             self.Xl[i] = self.d.landmark_poses_gt[l_i]
-        # each camera sees some landmarks
+
+        
         for camera_id in range(self.d.n_cameras):
             # store the inverse
             t_i, R_i = self.d.get_camera_pose(camera_id, gt=True)
             self.Xc[camera_id][:3,:3] = R_i.T
             self.Xc[camera_id][:3,3] = -R_i.T@t_i
             self.Xc[3,3] = 1.0
-            for landmark_seen in self.d.observed_keypoints[camera_id]:
-                self.measurements[(camera_id, self.landmark_map[landmark_seen])] = self.d.observed_keypoints[camera_id][landmark_seen]
+
         
     def _build_H_b(self):
         chi2 = 0
+        self.H = np.zeros((self.state_dim, self.state_dim), dtype=self.d.dtype)
+        self.b = np.zeros((self.state_dim), dtype=self.H.dtype)
 
         for camera_id in range(self.d.n_cameras):
             for landmark_seen in self.d.observed_keypoints[camera_id]:
                 landmark_id = self.landmark_map[landmark_seen]
-                e, Jc, Jl = self._error_jacobian(camera_id, landmark_id)
+
+                z = self.d.observed_keypoints[camera_id][landmark_seen]
+
+                e, Jc, Jl = self._error_jacobian(z, camera_id, landmark_id)
+
+                chi2 += e.T@e
 
                 e, weight = self._robustifier(e)
 
@@ -91,8 +100,31 @@ class BA():
                 self.b[cam_state:cam_state+self.d.pose_size]+=br
                 self.b[landmark_state:landmark_state+3]+=bl
 
+        # add damping
+        self.H += np.eye(self.state_dim)*self.damping
+        
+        self.chi_stats.append(chi2)
 
+    def _solve(self):
+        
+        for iter in range(self.n_iters):
+            print(iter)
+            self.delta_x = np.zeros(self.state_dim)
+            self._build_H_b()
 
+            # block the first camera pose
+            H_ = self.H[self.d.pose_size:, self.d.pose_size:]
+            b_ = self.b[self.d.pose_size:]
+            
+            #print(self.H_.shape)
+            #print("rank:",np.linalg.matrix_rank(self.H_))
+
+            # TODO do all the sparse things to optimize
+            self.delta_x[self.d.pose_size:] = np.linalg.solve(H_, -b_)
+
+            self._box_plus(self.Xc, self.Xl, self.delta_x)
+
+    
     # to fill the jacobians you need the position of the given
     # element in the state vector
     def _cam_to_state(self, i):
@@ -100,8 +132,7 @@ class BA():
     def _landmark_to_state(self, i):
         return 6*self.d.n_cameras + 3*i
 
-    def _error_jacobian(self, camera_id, landmark_id):
-        z = self.measurements[(camera_id, landmark_id)]
+    def _error_jacobian(self, z, camera_id, landmark_id):
 
         X_c = self.Xc[camera_id]
         X_l = self.Xl[landmark_id]
@@ -128,16 +159,20 @@ class BA():
 
         return error, J_norm@J_icp, J_norm@J_l
 
+    # TODO do
     def _robustifier(self, e):
         return e, 1.0
 
     def _box_plus(self, Xc, Xl, dx):
-        for cam_id in self.d.n_cameras:
-            state_id = self._cam_to_state(cam_id)
-            dx_cam = dx[state_id:state_id+6]
+        for cam in range(self.d.n_cameras):
+            state = self._cam_to_state(cam)
+            dx_cam = dx[state:state+self.d.pose_size]
             T = v2t(dx_cam)
-            Xc[cam_id] = T@Xc[cam_id]
-        #TODO landmarks
+            Xc[cam] = T@Xc[cam]
+        for landmark in range(self.d.n_landmarks):
+            state = self._landmark_to_state(landmark)
+            dx_landmark = dx[state:state+3]
+            Xl[landmark] += dx_landmark
     
     def _J_norm(self, p):
         norm = np.linalg.norm(p)

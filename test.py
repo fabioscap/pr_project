@@ -102,19 +102,24 @@ if __name__ == "__main__":
     path = "./1B-CameraSFM/dataset.txt"
     landmark_path = "./1B-CameraSFM/GT_landmarks.txt"
     BA_path = "./1B-CameraSFM/input_BA.txt" 
-    generate_fake_data("./fake_data", 10, 100)
+    # generate_fake_data("./fake_data", 10, 100)
     # d = Dataset("./fake_data/dataset.txt", "./fake_data/GT_landmarks.txt") 
     d = Dataset(path, landmark_path)
     #test_dataset(d)
     # test_ransac(d)
-    pairs = find_pairs(d, min_overlap=1)
+    pairs = find_pairs(d, min_overlap=34)
     #eval_solutions(d)
     
-    # t = TranslationInit(d,pairs)
+    t = TranslationInit(d,pairs)
 
     #eval_solutions(d)
-    b = BA(d, 10)
+    b = BA(d, 60)
     b._pre()
-    b._build_H_b()
+    b._solve()
     
+    print(b.chi_stats)
+    import matplotlib.pyplot as plt
+    plt.plot(b.chi_stats)
+    plt.show()
+
     viz.visualize_H(b.H)
