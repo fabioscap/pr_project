@@ -31,9 +31,43 @@ def test_eight_point(d: Dataset):
     for i in range(len(features)):
         print(p1[i,:]@E_@p2[i,:])
 
+def test_epipolar(d: Dataset):
+    
+    i = 3
+    j = 4
+
+    features = list(d.feature_overlap(i,j))
+    t_i, R_i = d.get_camera_pose(i, gt=True)
+    t_j, R_j = d.get_camera_pose(j, gt=True)
+
+    for feature in features:
+        # both cameras see this
+        # compute the distance from rays
+        
+        # transform both rays in world frame
+        d_i = R_i@d.observed_keypoints[i][feature]
+        d_j = R_j@d.observed_keypoints[j][feature]
+        # block 15 slide 3
+
+        delta_D = np.stack((d_i, -d_j), axis=-1)
+        assert delta_D.shape == (3,2)
+
+        delta_p = t_i-t_j 
+
+        s_star = - np.linalg.inv(delta_D.T@delta_D) @ delta_D.T @ delta_p
+
+        # evaluate the lines at those points and compute the difference
+        p_i = t_i + d_i * s_star[0]
+        p_j = t_j + d_j * s_star[1]
+
+        err = p_i - p_j
+
+        print(err.T@err)
+
+
 def test_ransac(d: Dataset):
     i = 0
-    j = 2
+    j = 1
     # id of overlapping features
     features = list(d.feature_overlap(i,j))
     features.sort()
@@ -45,7 +79,7 @@ def test_ransac(d: Dataset):
         p1[p:] = d.observed_keypoints[i][features[p]]
         p2[p:] = d.observed_keypoints[j][features[p]]
     E_, inliers = ransac_opencv(p1, p2, threshold=1e-3)
-
+    print(f"inlier ratio in pair {i}-{j} {len(inliers) / len(features)}")
     #import cv2
     # cv2 wants 2D points, divide by z
     #p1_norm = p1 / np.vstack((p1[:,2],p1[:,2],p1[:,2])).T
@@ -88,8 +122,6 @@ def eval_solutions(d: Dataset):
             ratio = (t_delta_gt / t_delta)
             translation_ratio.append(ratio)
             
-            
-
     rotation_errors = np.array(rotation_errors)
     # numbers should be zero
     print(f"rotation error: {np.mean(rotation_errors)} +- {np.std(rotation_errors)}")
@@ -102,24 +134,21 @@ if __name__ == "__main__":
     path = "./1B-CameraSFM/dataset.txt"
     landmark_path = "./1B-CameraSFM/GT_landmarks.txt"
     BA_path = "./1B-CameraSFM/input_BA.txt" 
-    # generate_fake_data("./fake_data", 10, 100)
+    # generate_fake_data("./fake_data", 60, 150, 0.0001)
     # d = Dataset("./fake_data/dataset.txt", "./fake_data/GT_landmarks.txt") 
     d = Dataset(path, landmark_path)
-    #test_dataset(d)
-    # test_ransac(d)
+    
+    
     pairs = find_pairs(d, min_overlap=34)
-    #eval_solutions(d)
+    TranslationInit(d,pairs)
     
-    t = TranslationInit(d,pairs)
-
-    #eval_solutions(d)
-    b = BA(d, 60)
-    b._pre()
+    quit()
+    eval_solutions(d)
+    b = BA(d, 60, damping=1.5)
     b._solve()
-    
-    print(b.chi_stats)
-    import matplotlib.pyplot as plt
-    plt.plot(b.chi_stats)
-    plt.show()
 
-    viz.visualize_H(b.H)
+    # print(b.chi_stats)
+
+    eval_solutions(d)
+    # test_epipolar(d)
+    # test_ransac(d)
