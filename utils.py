@@ -132,6 +132,8 @@ class Dataset():
         if rot is not None:
             self.camera_poses[i,3:Dataset.pose_size] = R.from_matrix(rot).as_euler(Dataset.angles_seq)
 
+    def set_landmark_pose(self, i, t):
+        self.landmark_poses[i] = t
 
     def feature_overlap(self, i, j): # i,j are camera indexes
         # https://stackoverflow.com/questions/18554012/intersecting-two-dictionaries
@@ -144,7 +146,7 @@ def eight_point( points_i: np.ndarray, points_j: np.ndarray):
     assert points_i.shape == (8,3)
     assert points_j.shape == (8,3)
 
-    return eight_point_LS(points_i, points_j)
+    return eight_point_LS(points_i, points_j)[0]
 
 def eight_point_LS( points_i: np.ndarray, points_j: np.ndarray):
     H = np.zeros((9,9))
@@ -219,11 +221,11 @@ def v2t(v: np.ndarray)->np.ndarray:
     return T
 
 
-def generate_fake_data(path, n_cameras, n_landmarks):
+def generate_fake_data(path, n_cameras, n_landmarks, observation_noise=0.01):
     # generate a dataset containing noise free data
     bounds_x = (-10,10)
     bounds_y = (-10,10)
-    bounds_z = (0,3)
+    bounds_z = (0,10)
 
     # scatter landmarks
     landmarks = np.random.rand(n_landmarks, 3)
@@ -254,7 +256,7 @@ def generate_fake_data(path, n_cameras, n_landmarks):
     for camera_id in range(n_cameras):
         # each camera observes some landmarks
         observed_keypoints[camera_id] = {}
-        n_observed = random.randint(0,n_landmarks//2) + n_landmarks//2
+        n_observed = random.randint(0,n_landmarks//3) + n_landmarks//3
 
         observed_landmarks_ids = random.sample(range(n_landmarks), k=n_observed)
 
@@ -268,6 +270,10 @@ def generate_fake_data(path, n_cameras, n_landmarks):
 
             landmark_in_camera = R_c.T@(x_l - t_c)
             landmark_in_camera /= np.linalg.norm(landmark_in_camera)
+
+            # add some noise
+            landmark_in_camera += np.random.randn(3)*observation_noise
+
             observed_keypoints[camera_id][landmark_id] = landmark_in_camera
     
     cameras_path = os.path.join(path,"dataset.txt")
