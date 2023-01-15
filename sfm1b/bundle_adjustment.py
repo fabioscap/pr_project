@@ -19,7 +19,7 @@ class BA():
 
     def __init__(self, d: Dataset, 
                        n_iters: int,
-                       damping= 10.0):
+                       damping= 1.5):
         self.d = d
 
         self.chi_stats = []
@@ -30,15 +30,13 @@ class BA():
         self.Xl = np.zeros((d.n_landmarks,3), dtype=d.dtype)
 
         self.state_dim = 6*d.n_cameras+3*d.n_landmarks
-        self.delta_x = np.zeros(self.state_dim)
 
         self.landmark_map = {}
         self.landmark_map_inverse = np.zeros(self.d.n_landmarks, dtype=np.uint8)
 
-        self.H = np.zeros((self.state_dim, self.state_dim), dtype=self.d.dtype)
-        self.b = np.zeros((self.state_dim), dtype=self.H.dtype)
-
         self.damping = damping
+
+        self._pre()
 
     def _pre(self):
 
@@ -48,12 +46,12 @@ class BA():
             self.landmark_map[l_i] = i
             self.landmark_map_inverse[i] = l_i
             # TODO replace with triangulated points
-            self.Xl[i] = self.d.landmark_poses_gt[l_i]
+            self.Xl[i] = self.d.get_landmark_pose(l_i, gt=True)
 
         
         for camera_id in range(self.d.n_cameras):
             # store the inverse
-            t_i, R_i = self.d.get_camera_pose(camera_id, gt=True)
+            t_i, R_i = self.d.get_camera_pose(camera_id)
             self.Xc[camera_id][:3,:3] = R_i.T
             self.Xc[camera_id][:3,3] = -R_i.T@t_i
             self.Xc[3,3] = 1.0
@@ -61,8 +59,9 @@ class BA():
         
     def _build_H_b(self):
         chi2 = 0
-        self.H = np.zeros((self.state_dim, self.state_dim), dtype=self.d.dtype)
-        self.b = np.zeros((self.state_dim), dtype=self.H.dtype)
+        inliers = 0
+        H = np.zeros((self.state_dim, self.state_dim), dtype=self.d.dtype)
+        b = np.zeros((self.state_dim), dtype=H.dtype)
 
         for camera_id in range(self.d.n_cameras):
             for landmark_seen in self.d.observed_keypoints[camera_id]:
@@ -74,7 +73,9 @@ class BA():
 
                 chi2 += e.T@e
 
-                e, weight = self._robustifier(e)
+                e, weight, inlier = self._robustifier(e)
+
+                inliers += inlier
 
                 Hrr = weight*Jc.T@Jc
                 Hrl = weight*Jc.T@Jl
@@ -85,44 +86,49 @@ class BA():
                 cam_state = self._cam_to_state(camera_id)
                 landmark_state = self._landmark_to_state(landmark_id)
 
-                self.H[cam_state:cam_state+self.d.pose_size,
+                H[cam_state:cam_state+self.d.pose_size,
                        cam_state:cam_state+self.d.pose_size]+=Hrr
 
-                self.H[cam_state:cam_state+self.d.pose_size,
+                H[cam_state:cam_state+self.d.pose_size,
                 landmark_state:landmark_state+3]+=Hrl
 
-                self.H[landmark_state:landmark_state+3,
+                H[landmark_state:landmark_state+3,
                 landmark_state:landmark_state+3]+=Hll
 
-                self.H[landmark_state:landmark_state+3,
+                H[landmark_state:landmark_state+3,
                 cam_state:cam_state+self.d.pose_size]+=Hrl.T
 
-                self.b[cam_state:cam_state+self.d.pose_size]+=br
-                self.b[landmark_state:landmark_state+3]+=bl
+                b[cam_state:cam_state+self.d.pose_size]+=br
+                b[landmark_state:landmark_state+3]+=bl
 
         # add damping
-        self.H += np.eye(self.state_dim)*self.damping
+        H += np.eye(self.state_dim)*self.damping
         
-        self.chi_stats.append(chi2)
+        return H, b, chi2, inliers
 
     def _solve(self):
-        
         for iter in range(self.n_iters):
-            print(iter)
-            self.delta_x = np.zeros(self.state_dim)
-            self._build_H_b()
+            
+            delta_x = np.zeros(self.state_dim)
+            H, b, chi2, inliers = self._build_H_b()
+            print(f"{iter}, {inliers}")
+            print(chi2)
+            print("\n",end="\r")
+            self.chi_stats.append(chi2)
 
             # block the first camera pose
-            H_ = self.H[self.d.pose_size:, self.d.pose_size:]
-            b_ = self.b[self.d.pose_size:]
+            H_ = H[self.d.pose_size:, self.d.pose_size:]
+            b_ = b[self.d.pose_size:]
             
-            #print(self.H_.shape)
-            #print("rank:",np.linalg.matrix_rank(self.H_))
+            #print(H_.shape)
+            #print("rank:",np.linalg.matrix_rank(H_))
 
             # TODO do all the sparse things to optimize
-            self.delta_x[self.d.pose_size:] = np.linalg.solve(H_, -b_)
+            delta_x[self.d.pose_size:] = np.linalg.solve(H_, -b_)
 
-            self._box_plus(self.Xc, self.Xl, self.delta_x)
+            self._box_plus(self.Xc, self.Xl, delta_x)
+
+        self._update_poses()
 
     
     # to fill the jacobians you need the position of the given
@@ -149,19 +155,21 @@ class BA():
 
         J_l = X_c[:3,:3]
 
-        # J = np.zeros((3,self.state_dim))
-
-        # camera_state = self._cam_to_state(camera_id)
-        # landmark_state = self._landmark_to_state(landmark_id)
-
-        # J[:,camera_state:camera_state+6] = J_norm@J_icp
-        # J[:,landmark_state:landmark_state+3] = J_norm@J_l
-
         return error, J_norm@J_icp, J_norm@J_l
 
     # TODO do
     def _robustifier(self, e):
-        return e, 1.0
+        
+        threshold = 0.5
+        inlier = True
+        weight = 1.0
+
+        if (e.T@e) > threshold:
+            e *= threshold/np.linalg.norm(e)
+            inlier = False
+            weight = 0
+
+        return e, weight, inlier
 
     def _box_plus(self, Xc, Xl, dx):
         for cam in range(self.d.n_cameras):
@@ -190,4 +198,60 @@ class BA():
         J_icp[:,3:] = -skew(p)
 
         return J_icp
+
+    def _update_poses(self):
+        for camera_id in range(self.d.n_cameras):
+            # fetch the pose vector from Xc
+            X_c = self.Xc[camera_id]
+            # need to remeber I stored the inverse...
+            Rinv = X_c[:3,:3]
+            tinv = X_c[:3,3]
+
+            self.d.set_camera_pose(camera_id, -Rinv.T@tinv, Rinv.T)
+
+        for landmark_id in range(self.d.n_landmarks):
+            X_l = self.Xl[landmark_id]
+            landmark_id = self.landmark_map_inverse[landmark_id]
+
+            self.d.set_landmark_pose(landmark_id, X_l)
+
+    
+
+def eval_solutions(d: Dataset):
+    rotation_errors = []
+    translation_ratio = []
+    for i in range(d.n_cameras):
+        for j in range(i+1, d.n_cameras):
+            t_i, R_i = d.get_camera_pose(i)
+            t_j, R_j = d.get_camera_pose(j)
+            t_i_gt, R_i_gt = d.get_camera_pose(i,gt=True)
+            t_j_gt, R_j_gt = d.get_camera_pose(j,gt=True)
+
+            R_delta = R_i.T @ R_j
+            R_delta_gt = R_i_gt.T @ R_j_gt
+
+            rotation_error = np.trace(np.eye(3) - R_delta.T @ R_delta_gt)
+            # rotation_error_gt = np.trace(np.eye(3) - R_delta_gt.T @ R_delta_gt)
+            rotation_errors.append(rotation_error)
+
+            t_delta = R_i.T @ (t_j-t_i)
+            norm = np.linalg.norm(t_delta)
+            if norm != 0.0:
+                t_delta /= np.linalg.norm(t_delta)
+            
+            t_delta_gt = R_i_gt.T @ (t_j_gt-t_i_gt)
+            norm = np.linalg.norm(t_delta_gt)
+            if norm != 0.0:
+                t_delta_gt /= np.linalg.norm(t_delta_gt)
+
+            ratio = (t_delta_gt / t_delta)
+            translation_ratio.append(ratio)
+
         
+    rotation_errors = np.array(rotation_errors)
+    # numbers should be zero
+    print(f"rotation error: {np.mean(rotation_errors)} +- {np.std(rotation_errors)}")
+    translation_ratio = np.array(translation_ratio)
+    # numbers should be equal with low std
+    print(f"translation ratios: {np.mean(translation_ratio, axis=0)} +- {np.std(translation_ratio, axis=0)}")
+ 
