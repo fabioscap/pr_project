@@ -293,5 +293,5 @@ def v2s(v: np.ndarray)->np.ndarray:
     assert v.reshape(-1).shape == (7,)
 
     T = v2t(v[:-1])
-    T[3,3] = np.exp(v[-1])
+    T[3,3] = np.exp(-v[-1])
     return T

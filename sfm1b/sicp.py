@@ -7,7 +7,7 @@ from scipy.linalg import solve
 
 from .bundle_adjustment import BA
 
-def sicp(p: np.ndarray, z: np.ndarray, initial_guess=np.eye(4), n_iters=10, damping=1.0, threshold=0.3):
+def sicp(p: np.ndarray, z: np.ndarray, initial_guess=np.eye(4), n_iters=10, damping=1.0, threshold=1.0):
     chi_stats = []
     X = initial_guess
 
@@ -19,9 +19,9 @@ def sicp(p: np.ndarray, z: np.ndarray, initial_guess=np.eye(4), n_iters=10, damp
 
             e, J = error_jacobian(X, p[i], z[i])
             chi2 += e.T@e
-            
+
             if (e.T@e) > threshold:
-                e *= threshold/np.linalg.norm(e)
+                pass# e *= threshold/np.linalg.norm(e)
             
             H += J.T@J
             b += J.T@e
@@ -46,7 +46,7 @@ def error_jacobian(X: np.ndarray, p: np.ndarray, z: np.ndarray):
     print(R)
     print(s)
     """
-    pred = s*(R@p + t)
+    pred = (R@p + t)/s
 
     error = pred - z
 
