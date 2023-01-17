@@ -1,12 +1,11 @@
 from utils import Dataset
+from sfm1b.find_pairs import Pair
 import matplotlib.pyplot as plt
 import numpy as np
 plot_path = "./plots"
 data_path = "./1B-CameraSFM/dataset.txt"
 
-def plot_pairs():
-    d = Dataset(data_path)
-
+def plot_overlap(d:Dataset):
     overlaps = []
     for i in range(d.n_cameras):
         for j in range(i+1,d.n_cameras):
@@ -18,12 +17,36 @@ def plot_pairs():
     plt.ylabel("occurrences")
     plt.savefig(f"{plot_path}/overlap.png")
 
+def plot_pairs(d: Dataset, pairs: list[Pair]):
+    pair_matrix = np.zeros((d.n_cameras,d.n_cameras), dtype=np.uint8)
+
+    for pair in pairs:
+        i = pair.i
+        j = pair.j
+
+        pair_matrix[i][j] = 255
+        pair_matrix[j][i] = 255
+    
+    plt.matshow(pair_matrix)
+    plt.savefig(f"{plot_path}/pairs.png")
+
 def visualize_dataset(d: Dataset):
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
     ax = plt.axes(projection='3d')
 
     # TODO
+    gtposes = np.zeros((d.n_landmarks,3))
+    poses = np.zeros_like(gtposes)
+    i=0
+    for gtpose,pose in zip(d.landmark_poses_gt.values(), d.landmark_poses.values()):
+        gtposes[i,:] = gtpose
+        poses[i,:] = pose
+
+        i+=1
+    ax.scatter(gtposes[:,0],gtposes[:,1],gtposes[:,2], c="red")
+    ax.scatter(poses[:,0],poses[:,1],poses[:,2], c="green")
+    plt.show()
 
 def visualize_H(H: np.ndarray, filename="H"):
     import matplotlib.pyplot as plt
