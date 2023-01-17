@@ -1,5 +1,6 @@
 from utils import Dataset
 from sfm1b.find_pairs import Pair
+from sfm1b.sicp import sicp
 import matplotlib.pyplot as plt
 import numpy as np
 plot_path = "./plots"
@@ -30,7 +31,7 @@ def plot_pairs(d: Dataset, pairs: list[Pair]):
     plt.matshow(pair_matrix)
     plt.savefig(f"{plot_path}/pairs.png")
 
-def visualize_dataset(d: Dataset):
+def visualize_landmarks(d: Dataset):
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
     ax = plt.axes(projection='3d')
@@ -44,8 +45,20 @@ def visualize_dataset(d: Dataset):
         poses[i,:] = pose
 
         i+=1
+
+    # TODO move this in another function
+    # maybe this takes as input two point clouds instead of the whole dataset
+    X, _ = sicp(gtposes, poses, n_iters=10, damping=10)
+    s = X[3,3]
+    print("SCALE", s)
+
+    poses_homog = np.hstack((poses, np.ones((poses.shape[0], 1), dtype=poses.dtype)))
+    tf_poses_homog = (np.linalg.inv(X)@poses_homog.T).T
+
+    tf_poses = tf_poses_homog[:,:-1] /  tf_poses_homog[:,-1].reshape(-1,1)
+
     ax.scatter(gtposes[:,0],gtposes[:,1],gtposes[:,2], c="red")
-    ax.scatter(poses[:,0],poses[:,1],poses[:,2], c="green")
+    ax.scatter(tf_poses[:,0],tf_poses[:,1],tf_poses[:,2], c="green")
     plt.show()
 
 def visualize_H(H: np.ndarray, filename="H"):

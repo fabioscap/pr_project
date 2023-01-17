@@ -152,7 +152,8 @@ def test_triangulation():
 
 def test_sicp():
     n = 1000
-    noise = 0.01
+    noise = 0.0001
+    n_iters = 100
 
     p1 = np.random.rand(n,3)
 
@@ -162,37 +163,36 @@ def test_sicp():
     p1_homog = np.hstack((p1, np.ones((p1.shape[0], 1), dtype=p1.dtype)))
     p2_homog = (S@p1_homog.T).T
     
-    # s*(Rp + t)
-    p2 = p2_homog[:,:-1] * p2_homog[:,-1].reshape(-1,1)
+    p2 = p2_homog[:,:-1] / p2_homog[:,-1].reshape(-1,1)
     p2 += np.random.rand(*p2.shape)*noise
 
     v_guess = v + np.array([-2,0.1,-0.2,-0.1,0.1,0.0,0.01])
     S_guess = v2s(v_guess)
 
-    X, chi_stats = sicp(p1,p2, n_iters=100, damping=1.0)
-
+    X, chi_stats = sicp(p1,p2, n_iters=n_iters, damping=500, initial_guess=S)
 
     import matplotlib.pyplot as plt
-    plt.plot(range(100),chi_stats)
+    plt.plot(range(n_iters),chi_stats)
     plt.show()
-
+    
 
 if __name__ == "__main__":
     path = "./1B-CameraSFM/dataset.txt"
     landmark_path = "./1B-CameraSFM/GT_landmarks.txt"
     BA_path = "./1B-CameraSFM/input_BA.txt" 
-    # generate_fake_data("./fake_data", 99, 150, 0.)
-    # d = Dataset("./fake_data/dataset.txt", "./fake_data/GT_landmarks.txt") 
+    generate_fake_data("./fake_data", 99, 150, 0.)
+    d = Dataset("./fake_data/dataset.txt", "./fake_data/GT_landmarks.txt") 
     # d = Dataset(BA_path, landmark_path)
 
-    # pairs = find_pairs(d, min_overlap=20)
+    pairs = find_pairs(d, min_overlap=1)
 
     # t = TranslationInit(d, pairs)
 
-    # triangulate_landmarks(d)
-    # viz.visualize_dataset(d)
+    triangulate_landmarks(d)
 
-    test_sicp()
+    viz.visualize_landmarks(d)
+
+    # test_sicp()
 
     quit()    
     b = BA(d, 20000, 1.5)
