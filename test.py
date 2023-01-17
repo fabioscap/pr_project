@@ -1,9 +1,11 @@
-from utils import Dataset, eight_point, decompose_E, skew, v2t, t2v, generate_fake_data
+from utils import Dataset, eight_point, decompose_E, skew, v2t, t2v, generate_fake_data, v2s
 import viz
 from sfm1b.translation_init import TranslationInit
 from sfm1b.find_pairs import find_pairs
 from sfm1b.eight_point_ransac import ransac, ransac_opencv
 from sfm1b.bundle_adjustment import BA
+from sfm1b.triangulation import triangulate_landmarks, triangulate_lines
+from sfm1b.sicp import sicp
 import numpy as np
 
 def test_dataset(d: Dataset):
@@ -129,26 +131,69 @@ def eval_solutions(d: Dataset):
     # numbers should be equal with low std
     print(f"translation ratios: {np.mean(translation_ratio, axis=0)} +- {np.std(translation_ratio, axis=0)}")
  
+def test_triangulation():
+    # two lines
+    t1 = np.zeros(3)
+    t2 = np.array([1.0,1.0,1.0])
+
+    d1 = np.array([1.0, 1.0,1.0])
+    d1 /= np.linalg.norm(d1)
+
+    d2 = np.array([0,1.0,0.0])
+    d2 /= np.linalg.norm(d2)
+
+    l1 = (d1,t1)
+    l2 = (d2,t2)
+
+    lines = [l2,l1]
+
+    point = triangulate_lines(lines)
+    print(point)
+
+def test_sicp():
+    n = 1000
+    noise = 0.01
+
+    p1 = np.random.rand(n,3)
+
+    v = np.random.rand(7)
+    S = v2s(v)
+
+    p1_homog = np.hstack((p1, np.ones((p1.shape[0], 1), dtype=p1.dtype)))
+    p2_homog = (S@p1_homog.T).T
+    
+    # s*(Rp + t)
+    p2 = p2_homog[:,:-1] * p2_homog[:,-1].reshape(-1,1)
+    p2 += np.random.rand(*p2.shape)*noise
+
+    v_guess = v + np.array([-2,0.1,-0.2,-0.1,0.1,0.0,0.01])
+    S_guess = v2s(v_guess)
+
+    X, chi_stats = sicp(p1,p2, n_iters=100, damping=1.0)
+
+
+    import matplotlib.pyplot as plt
+    plt.plot(range(100),chi_stats)
+    plt.show()
+
 
 if __name__ == "__main__":
     path = "./1B-CameraSFM/dataset.txt"
     landmark_path = "./1B-CameraSFM/GT_landmarks.txt"
     BA_path = "./1B-CameraSFM/input_BA.txt" 
-    # generate_fake_data("./fake_data", 60, 150, 0.0001)
+    # generate_fake_data("./fake_data", 99, 150, 0.)
     # d = Dataset("./fake_data/dataset.txt", "./fake_data/GT_landmarks.txt") 
-    d = Dataset(path, landmark_path)
-    
-    
-    pairs = find_pairs(d, min_overlap=34)
-    TranslationInit(d,pairs)
-    
-    quit()
-    eval_solutions(d)
-    b = BA(d, 60, damping=1.5)
+    # d = Dataset(BA_path, landmark_path)
+
+    # pairs = find_pairs(d, min_overlap=20)
+
+    # t = TranslationInit(d, pairs)
+
+    # triangulate_landmarks(d)
+    # viz.visualize_dataset(d)
+
+    test_sicp()
+
+    quit()    
+    b = BA(d, 20000, 1.5)
     b._solve()
-
-    # print(b.chi_stats)
-
-    eval_solutions(d)
-    # test_epipolar(d)
-    # test_ransac(d)
