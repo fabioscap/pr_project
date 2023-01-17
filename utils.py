@@ -238,7 +238,7 @@ def generate_fake_data(path, n_cameras, n_landmarks, observation_noise=0.01):
     landmarks_path = os.path.join(path,"GT_landmarks.txt")
     with open(landmarks_path,"w") as file:
         for i in range(n_landmarks):
-            line = f"L: {i} {landmarks[i,0]:6f} {landmarks[i,1]:6f} {landmarks[i,2]:6f}\n"
+            line = f"L: {i} {landmarks[i,0]} {landmarks[i,1]} {landmarks[i,2]}\n"
             file.write(line)
 
     cameras = np.random.rand(n_cameras, 6)
@@ -279,13 +279,19 @@ def generate_fake_data(path, n_cameras, n_landmarks, observation_noise=0.01):
     cameras_path = os.path.join(path,"dataset.txt")
     with open(cameras_path,"w") as file:
         for i in range(n_cameras):
-            line = f"KF: {i} {cameras[i,0]:6f} {cameras[i,1]:6f} {cameras[i,2]:6f} {cameras[i,3]:6f} {cameras[i,4]:6f} {cameras[i,5]:6f} \
-{cameras[i,0]:6f} {cameras[i,1]:6f} {cameras[i,2]:6f} {cameras[i,3]:6f} {cameras[i,4]:6f} {cameras[i,5]:6f}\n"
+            line = f"KF: {i} {cameras[i,0]} {cameras[i,1]} {cameras[i,2]} {cameras[i,3]} {cameras[i,4]} {cameras[i,5]} \
+{cameras[i,0]} {cameras[i,1]} {cameras[i,2]} {cameras[i,3]} {cameras[i,4]} {cameras[i,5]}\n"
             file.write(line)
             n = 0
             for j in observed_keypoints[i].keys():
-                line = f"F: {n} {j} {observed_keypoints[i][j][0]:6f} {observed_keypoints[i][j][1]:6f} {observed_keypoints[i][j][2]:6f}\n"
+                line = f"F: {n} {j} {observed_keypoints[i][j][0]} {observed_keypoints[i][j][1]} {observed_keypoints[i][j][2]}\n"
                 file.write(line)
                 n+= 1
 
 
+def v2s(v: np.ndarray)->np.ndarray:
+    assert v.reshape(-1).shape == (7,)
+
+    T = v2t(v[:-1])
+    T[3,3] = np.exp(v[-1])
+    return T
