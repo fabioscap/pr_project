@@ -69,7 +69,7 @@ def t2v(T: np.ndarray)->np.ndarray:
     v = np.zeros(6, dtype=T.dtype)
 
     v[:3] = T[:3,3]
-    v[3:] = R.from_matrix(T[:3,:3]).as_euler(Dataset.angles_seq)
+    v[3:] = R.from_matrix(T[:3,:3]).as_quat()[:-1] # spare the last component
 
     return v
 
