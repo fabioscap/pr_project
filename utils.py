@@ -216,7 +216,10 @@ def v2t(v: np.ndarray)->np.ndarray:
 
     T = np.eye(4)
     T[:3,3] = v[:3]
-    T[:3,:3] = R.from_euler(Dataset.angles_seq, v[3:]).as_matrix()
+
+    quat = complete_quaternion(v[3:])
+
+    T[:3,:3] = R.from_quat(quat).as_matrix()
 
     return T
 
@@ -295,3 +298,10 @@ def v2s(v: np.ndarray)->np.ndarray:
     T = v2t(v[:-1])
     T[3,3] = np.exp(-v[-1])
     return T
+
+def complete_quaternion(q:np.ndarray)->np.ndarray:
+    out = np.zeros(4, dtype=q.dtype)
+    out[:-1] = q.copy()
+    out[-1] = 1 - np.linalg.norm(q)
+
+    return out
