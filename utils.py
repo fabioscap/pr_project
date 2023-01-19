@@ -106,15 +106,19 @@ def generate_fake_data(path, n_cameras, n_landmarks, observation_noise=0.01):
             line = f"L: {i} {landmarks[i,0]} {landmarks[i,1]} {landmarks[i,2]}\n"
             file.write(line)
 
-    cameras = np.random.rand(n_cameras, 6)
+    cameras = np.random.rand(n_cameras, 7)
 
     cameras[:,0] = cameras[:,0]*(bounds_x[1]-bounds_x[0]) + bounds_x[0]
     cameras[:,1] = cameras[:,1]*(bounds_y[1]-bounds_y[0]) + bounds_y[0]
     cameras[:,2] = cameras[:,2]*(bounds_z[1]-bounds_z[0]) + bounds_z[0]
 
-    cameras[:,3] = cameras[:,3]*(2*math.pi) - math.pi
-    cameras[:,4] = cameras[:,4]*(2*math.pi) - math.pi
-    cameras[:,5] = cameras[:,5]*(2*math.pi) - math.pi
+    
+    cameras[:,3] = cameras[:,3] -0.5
+    cameras[:,4] = cameras[:,4] -0.5
+    cameras[:,5] = cameras[:,5] -0.5
+    cameras[:,6] = cameras[:,6] # convention qw > 0
+
+    cameras[:,3:] /= np.linalg.norm(cameras[:,3:],axis=1).reshape(-1,1)
 
     observed_keypoints = {}
 
@@ -125,13 +129,16 @@ def generate_fake_data(path, n_cameras, n_landmarks, observation_noise=0.01):
 
         observed_landmarks_ids = random.sample(range(n_landmarks), k=n_observed)
 
+        # camera pose
+        t_c = cameras[camera_id][:3]
+        quat = cameras[camera_id][3:]
+
+        R_c = R.from_quat(quat).as_matrix()
+
         for landmark_id in observed_landmarks_ids:
             # global landmark position
             x_l = landmarks[landmark_id]
 
-            # camera pose
-            t_c = cameras[camera_id][:3]
-            R_c = R.from_euler(Dataset.angles_seq, cameras[camera_id][3:]).as_matrix()
 
             landmark_in_camera = R_c.T@(x_l - t_c)
             landmark_in_camera /= np.linalg.norm(landmark_in_camera)
@@ -164,6 +171,6 @@ def v2s(v: np.ndarray)->np.ndarray:
 def complete_quaternion(q:np.ndarray)->np.ndarray:
     out = np.zeros(4, dtype=q.dtype)
     out[:-1] = q.copy()
-    out[-1] = 1 - np.linalg.norm(q)
+    out[-1] = np.sqrt(1 - np.dot(q,q))
 
     return out

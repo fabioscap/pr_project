@@ -36,20 +36,21 @@ def test_eight_point(d: Dataset):
 
 def test_epipolar(d: Dataset):
     
-    i = 3
-    j = 4
+    i = 0
+    j = 1
 
     features = list(d.feature_overlap(i,j))
-    t_i, R_i = d.get_camera_pose(i, gt=True)
-    t_j, R_j = d.get_camera_pose(j, gt=True)
+    t_i, R_i = d.get_camera_pose(i)
+    t_j, R_j = d.get_camera_pose(j)
 
     for feature in features:
         # both cameras see this
         # compute the distance from rays
         
         # transform both rays in world frame
-        d_i = R_i@d.observed_keypoints[i][feature]
-        d_j = R_j@d.observed_keypoints[j][feature]
+        d_i = R_i@d.directions[i][feature]
+        d_j = R_j@d.directions[j][feature]
+        
         # block 15 slide 3
 
         delta_D = np.stack((d_i, -d_j), axis=-1)
@@ -181,10 +182,7 @@ if __name__ == "__main__":
     path = "./1B-CameraSFM/dataset.txt"
     landmark_path = "./1B-CameraSFM/GT_landmarks.txt"
     BA_path = "./1B-CameraSFM/input_BA.txt" 
-    # generate_fake_data("./fake_data", 99, 150, 0.)
-    # d = Dataset("./fake_data/dataset.txt", "./fake_data/GT_landmarks.txt") 
+    generate_fake_data("./fake_data", 10, 40, 0.)
+    d = Dataset("./fake_data/dataset.txt", "./fake_data/GT_landmarks.txt", ground_truth=True) 
 
-    d = Dataset(path, landmark_path, ground_truth=False)
-    d_gt = Dataset(path, landmark_path, ground_truth=True)
-    
-    print(d.feature_overlap(0,1))
+    # d = Dataset(path, landmark_path, ground_truth=False)

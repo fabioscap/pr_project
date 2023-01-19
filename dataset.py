@@ -39,13 +39,13 @@ class Dataset():
 
         self._load()
 
-    def get_camera_pose(self, i)->tuple[np.ndarray, np.ndarray]:
+    def get_camera_pose(self, i, **kwargs)->tuple[np.ndarray, np.ndarray]:
         t = self.camera_poses[i][:3,3]
         r = self.camera_poses[i][:3,:3]
 
         return (t, r)
     
-    def get_landmark_pose(self, i)->np.ndarray:
+    def get_landmark_pose(self, i, **kwargs)->np.ndarray:
         return self.landmark_poses[i]
 
     def set_camera_pose(self, i, t=None, rot=None):
@@ -106,13 +106,11 @@ class Dataset():
 
     def _add_new_landmark(self, line):
         landmark_id = int(line[1])
-
         if self.gt:
             landmark_pose = np.array(line[self.l_slice], dtype=Dataset.dtype)
         else:
             # initialize the estimate to zeros
             landmark_pose = np.zeros(3, dtype=Dataset.dtype)
-
 
         self.landmark_poses[landmark_id] = landmark_pose
 
