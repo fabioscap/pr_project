@@ -1,4 +1,5 @@
-from utils import Dataset, skew
+from dataset import Dataset
+from utils import skew
 from .find_pairs import Pair
 import numpy as np
 

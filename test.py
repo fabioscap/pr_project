@@ -1,4 +1,5 @@
-from utils import Dataset, eight_point, decompose_E, skew, v2t, t2v, generate_fake_data, v2s
+from utils import eight_point, decompose_E, skew, v2t, t2v, generate_fake_data, v2s
+from dataset import Dataset
 import viz
 from sfm1b.translation_init import TranslationInit
 from sfm1b.find_pairs import find_pairs
@@ -180,20 +181,10 @@ if __name__ == "__main__":
     path = "./1B-CameraSFM/dataset.txt"
     landmark_path = "./1B-CameraSFM/GT_landmarks.txt"
     BA_path = "./1B-CameraSFM/input_BA.txt" 
-    generate_fake_data("./fake_data", 99, 150, 0.)
-    d = Dataset("./fake_data/dataset.txt", "./fake_data/GT_landmarks.txt") 
-    # d = Dataset(BA_path, landmark_path)
+    # generate_fake_data("./fake_data", 99, 150, 0.)
+    # d = Dataset("./fake_data/dataset.txt", "./fake_data/GT_landmarks.txt") 
 
-    pairs = find_pairs(d, min_overlap=1)
-
-    # t = TranslationInit(d, pairs)
-
-    triangulate_landmarks(d)
-
-    viz.visualize_landmarks(d)
-
-    # test_sicp()
-
-    quit()    
-    b = BA(d, 20000, 1.5)
-    b._solve()
+    d = Dataset(path, landmark_path, ground_truth=False)
+    d_gt = Dataset(path, landmark_path, ground_truth=True)
+    
+    print(d.feature_overlap(0,1))

@@ -1,6 +1,7 @@
 # test with automatic differentiation
 # the quickest way to me is to use torch
-from utils import Dataset, v2t, t2v, skew
+from utils import v2t, t2v, skew
+from dataset import Dataset
 import numpy as np
 
 # perform bundle adjustment
@@ -45,13 +46,12 @@ class BA():
         for i, l_i in zip(range(self.d.n_landmarks), self.d.landmark_poses.keys()):
             self.landmark_map[l_i] = i
             self.landmark_map_inverse[i] = l_i
-            # TODO replace with triangulated points
             self.Xl[i] = self.d.get_landmark_pose(l_i, gt=True)
 
         
         for camera_id in range(self.d.n_cameras):
             # store the inverse
-            t_i, R_i = self.d.get_camera_pose(camera_id)
+            t_i, R_i = self.d.get_camera_pose(camera_id, gt=True)
             self.Xc[camera_id][:3,:3] = R_i.T
             self.Xc[camera_id][:3,3] = -R_i.T@t_i
             self.Xc[3,3] = 1.0
@@ -87,16 +87,16 @@ class BA():
                 landmark_state = self._landmark_to_state(landmark_id)
 
                 H[cam_state:cam_state+self.d.pose_size,
-                       cam_state:cam_state+self.d.pose_size]+=Hrr
+                  cam_state:cam_state+self.d.pose_size]+=Hrr
 
                 H[cam_state:cam_state+self.d.pose_size,
-                landmark_state:landmark_state+3]+=Hrl
+                  landmark_state:landmark_state+3]+=Hrl
 
                 H[landmark_state:landmark_state+3,
-                landmark_state:landmark_state+3]+=Hll
+                  landmark_state:landmark_state+3]+=Hll
 
                 H[landmark_state:landmark_state+3,
-                cam_state:cam_state+self.d.pose_size]+=Hrl.T
+                  cam_state:cam_state+self.d.pose_size]+=Hrl.T
 
                 b[cam_state:cam_state+self.d.pose_size]+=br
                 b[landmark_state:landmark_state+3]+=bl
@@ -160,7 +160,7 @@ class BA():
     # TODO do
     def _robustifier(self, e):
         
-        threshold = 0.5
+        threshold = 0.1
         inlier = True
         weight = 1.0
 
@@ -215,43 +215,4 @@ class BA():
 
             self.d.set_landmark_pose(landmark_id, X_l)
 
-    
 
-def eval_solutions(d: Dataset):
-    rotation_errors = []
-    translation_ratio = []
-    for i in range(d.n_cameras):
-        for j in range(i+1, d.n_cameras):
-            t_i, R_i = d.get_camera_pose(i)
-            t_j, R_j = d.get_camera_pose(j)
-            t_i_gt, R_i_gt = d.get_camera_pose(i,gt=True)
-            t_j_gt, R_j_gt = d.get_camera_pose(j,gt=True)
-
-            R_delta = R_i.T @ R_j
-            R_delta_gt = R_i_gt.T @ R_j_gt
-
-            rotation_error = np.trace(np.eye(3) - R_delta.T @ R_delta_gt)
-            # rotation_error_gt = np.trace(np.eye(3) - R_delta_gt.T @ R_delta_gt)
-            rotation_errors.append(rotation_error)
-
-            t_delta = R_i.T @ (t_j-t_i)
-            norm = np.linalg.norm(t_delta)
-            if norm != 0.0:
-                t_delta /= np.linalg.norm(t_delta)
-            
-            t_delta_gt = R_i_gt.T @ (t_j_gt-t_i_gt)
-            norm = np.linalg.norm(t_delta_gt)
-            if norm != 0.0:
-                t_delta_gt /= np.linalg.norm(t_delta_gt)
-
-            ratio = (t_delta_gt / t_delta)
-            translation_ratio.append(ratio)
-
-        
-    rotation_errors = np.array(rotation_errors)
-    # numbers should be zero
-    print(f"rotation error: {np.mean(rotation_errors)} +- {np.std(rotation_errors)}")
-    translation_ratio = np.array(translation_ratio)
-    # numbers should be equal with low std
-    print(f"translation ratios: {np.mean(translation_ratio, axis=0)} +- {np.std(translation_ratio, axis=0)}")
- 

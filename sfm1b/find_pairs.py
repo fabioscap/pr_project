@@ -1,7 +1,8 @@
 # find pairs between images, then extract their 
 # essential matrix. From the matrix get the relative translation
 # (rotation already done in 1a) 
-from utils import Dataset, decompose_E
+from dataset import Dataset
+from utils import decompose_E
 from .eight_point_ransac import ransac,ransac_opencv, eight_point_LS
 import numpy as np
 

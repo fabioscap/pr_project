@@ -1,4 +1,4 @@
-from utils import Dataset
+from dataset import Dataset
 from sfm1b.find_pairs import Pair
 from sfm1b.sicp import sicp
 import matplotlib.pyplot as plt

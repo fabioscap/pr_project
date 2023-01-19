@@ -1,4 +1,4 @@
-from utils import Dataset
+from dataset import Dataset
 import numpy as np
 
 def triangulate_landmarks(d: Dataset):
