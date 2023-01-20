@@ -59,6 +59,10 @@ class Dataset():
         if self.gt: return
         self.landmark_poses[i] = t
 
+    def get_direction(self, c_idx, l_idx=None):
+        if l_idx is None: return self.directions[c_idx]
+        else: return self.directions[c_idx].get(l_idx, None)
+
     def feature_overlap(self, i, j): # i,j are camera indexes
         # https://stackoverflow.com/questions/18554012/intersecting-two-dictionaries
         overlapping_features = self.directions[i].keys() & self.directions[j].keys()
@@ -112,7 +116,9 @@ class Dataset():
             # initialize the estimate to zeros
             landmark_pose = np.zeros(3, dtype=Dataset.dtype)
 
-        self.landmark_poses[landmark_id] = landmark_pose
+        self.landmark_poses[landmark_id] = landmark_pose            
+        self.n_landmarks+=1
+
 
     def _add_new_camera(self, line) -> int:
         camera_id = int(line[1])
