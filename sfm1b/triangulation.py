@@ -5,9 +5,9 @@ def triangulate_landmarks(d: Dataset):
     for idx in d.landmark_poses.keys():
         lines = []
         for camera in range(d.n_cameras):
-            if idx in d.observed_keypoints[camera]:
+            if idx in d.get_direction(camera):
                 ti, Ri = d.get_camera_pose(camera)
-                di = d.observed_keypoints[camera][idx]
+                di = d.get_direction(camera,idx)
 
                 n = Ri@di
                 lines.append((n, ti))

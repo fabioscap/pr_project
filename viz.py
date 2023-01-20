@@ -31,16 +31,18 @@ def plot_pairs(d: Dataset, pairs: list[Pair]):
     plt.matshow(pair_matrix)
     plt.savefig(f"{plot_path}/pairs.png")
 
-def visualize_landmarks(d: Dataset):
+def visualize_landmarks(d: Dataset, d_gt:Dataset):
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
     ax = plt.axes(projection='3d')
 
     # TODO
-    gtposes = np.zeros((d.n_landmarks,3))
-    poses = np.zeros_like(gtposes)
+    assert d.n_landmarks == d_gt.n_landmarks
+    gtposes = np.zeros((d_gt.n_landmarks,3))
+    poses = np.zeros((d.n_landmarks,3))
     i=0
-    for gtpose,pose in zip(d.landmark_poses_gt.values(), d.landmark_poses.values()):
+    print(d_gt.landmark_poses.values())
+    for gtpose,pose in zip(d_gt.landmark_poses.values(), d.landmark_poses.values()):
         gtposes[i,:] = gtpose
         poses[i,:] = pose
 
@@ -49,8 +51,7 @@ def visualize_landmarks(d: Dataset):
     # TODO move this in another function
     # maybe this takes as input two point clouds instead of the whole dataset
     X, _ = sicp(gtposes, poses, n_iters=10, damping=10)
-    s = X[3,3]
-    print("SCALE", s)
+    print("SCALE", X[3,3])
 
     poses_homog = np.hstack((poses, np.ones((poses.shape[0], 1), dtype=poses.dtype)))
     tf_poses_homog = (np.linalg.inv(X)@poses_homog.T).T

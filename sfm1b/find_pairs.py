@@ -2,16 +2,18 @@
 # essential matrix. From the matrix get the relative translation
 # (rotation already done in 1a) 
 from dataset import Dataset
-from utils import decompose_E
-from .eight_point_ransac import ransac,ransac_opencv, eight_point_LS
+from utils import decompose_E, eight_point_LS
 import numpy as np
+
+import cv2
 
 class Pair():
     def __init__(self, i, 
                        j, 
                        features, 
                        d:Dataset, 
-                       E_proc = eight_point_LS
+                       # no wrong associations
+                       E_proc = eight_point_LS 
                        ):
         self.i = i
         self.j = j
@@ -23,11 +25,9 @@ class Pair():
         self.E, self.inliers = self._compute_E()
 
         # don't care for R
-        _, self.t_ij = decompose_E(self.E)
-
-        self.t_ij
-
-        # TODO take into account in/outliers for landmark triangulation?
+        _,_,self.t_ij = cv2.decomposeEssentialMat(self.E)
+        self.t_ij = self.t_ij.reshape(-1)
+        # _, tij_mine = decompose_E(self.E) # my implementation is wrong
 
     def _compute_E(self):
         p1 = np.zeros((len(self.features),3))
@@ -36,8 +36,8 @@ class Pair():
         # fill this with the observed directions
         p = 0
         for feature in self.features:
-            p1[p:] = self.d.observed_keypoints[self.i][feature]
-            p2[p:] = self.d.observed_keypoints[self.j][feature]
+            p1[p:] = self.d.get_direction(self.i,feature)
+            p2[p:] = self.d.get_direction(self.j,feature)
             p+=1
 
         return self.E_proc(p1, p2)
