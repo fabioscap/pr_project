@@ -1,6 +1,6 @@
 import numpy as np
 from utils import complete_quaternion, v2t
-
+from scipy.spatial.transform import Rotation as R
 
 class Dataset():
 
@@ -126,7 +126,13 @@ class Dataset():
         pose_vector = np.array(line[self.c_slice], dtype=Dataset.dtype)
 
         # store the expanded pose in a 4x4 matrix
-        camera_pose = v2t(pose_vector)
+        camera_t = pose_vector[:3]
+        quat = complete_quaternion(pose_vector[3:])
+        camera_r = R.from_quat(quat).as_matrix()
+
+        camera_pose = np.zeros((4,4),dtype=Dataset.dtype)
+        camera_pose[:3,:3] = camera_r
+        camera_pose[:3,3]  = camera_t
 
         self.camera_poses[camera_id] = camera_pose
 
