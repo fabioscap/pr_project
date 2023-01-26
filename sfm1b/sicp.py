@@ -3,9 +3,6 @@
 
 import numpy as np
 from utils import skew, v2s
-from scipy.linalg import solve
-
-from .bundle_adjustment import BA
 
 def sicp(p: np.ndarray, z: np.ndarray, initial_guess=np.eye(4), n_iters=10, damping=1.0, threshold=1.0):
     chi_stats = []
@@ -40,13 +37,8 @@ def error_jacobian(X: np.ndarray, p: np.ndarray, z: np.ndarray):
     t = X[:3,3]
     R = X[:3,:3]
     s = X[3,3]
-    """
-    print(X)
-    print(t)
-    print(R)
-    print(s)
-    """
-    pred = (R@p + t)/s
+
+    pred = (R@p + t)*s
 
     error = pred - z
 

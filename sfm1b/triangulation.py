@@ -17,7 +17,7 @@ def triangulate_landmarks(d: Dataset):
 
         # valid only with fake dataset
         # print(f"error: {np.linalg.norm(d.get_landmark_pose(idx,gt=True)-landmark_pose)}")
-        print(landmark_pose)
+        # print(landmark_pose)
 
 
 # https://silo.tips/download/least-squares-intersection-of-lines

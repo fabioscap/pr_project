@@ -48,12 +48,6 @@ class TranslationInit():
         # _,S,_ = np.linalg.svd(self.H,hermitian=True)
         # print(S[-6:])
 
-        pair = self.pairs[0]
-        _, R_i = self.dataset.get_camera_pose(pair.i)
-        t_ij = pair.t_ij
-        t_j = self.t[3*pair.j:3*pair.j+3]
-        t_i = self.t[3*pair.i:3*pair.i+3]
-
         # solve 3 degrees by fixing the first camera in (0,0,0)
         self.H_ = self.H[3:,3:]
         self.t_ = self.t[3:]
@@ -61,7 +55,10 @@ class TranslationInit():
         _, _, Vt = np.linalg.svd(self.H_)
         self.t_ = Vt[-1,:] # eigvector of the smallest singular value
 
-        self.t[3:] = self.t_
+        # TODO research why do I have to take the minus / how to choose the sign
+        # if I take the plus everything is flipped with respect to gt
+        # scale it by 100 so sicp converges better and you can see the landmarks overlapping with the gt
+        self.t[3:] = - self.t_* 100
 
         return self.t
 

@@ -46,26 +46,28 @@ def visualize_landmarks(d: Dataset, d_gt:Dataset, lines=True):
         poses[i,:] = pose
 
         i+=1
+    sicp_plot(poses,gtposes,lines)
 
-    # TODO move this in another function
-    # maybe this takes as input two point clouds instead of the whole dataset
-    X, chi_stats = sicp(poses, gtposes, n_iters=200, damping=10, threshold=1.0)
-
+def sicp_plot(p1,p2, lines=True):
+    X, chi_stats = sicp(p1,p2, n_iters=1000, damping=100, threshold=1)
     ax = plt.axes(projection='3d')
+    print(X)
+    t = X[:3,3]
+    R = X[:3,:3]
+    s = X[3,3]
 
-    poses_homog = np.hstack((poses, np.ones((poses.shape[0], 1), dtype=poses.dtype)))
-    tf_poses_homog = (X@poses_homog.T).T
+    print(chi_stats[-1])
 
-    tf_poses = tf_poses_homog[:,:-1] /  tf_poses_homog[:,-1].reshape(-1,1)
+    tf_p1 = ((R@p1.T).T + t)*s
 
-    ax.scatter(gtposes[:,0],gtposes[:,1],gtposes[:,2], c="red")
-    ax.scatter(tf_poses[:,0],tf_poses[:,1],tf_poses[:,2], c="green")
+    ax.scatter(tf_p1[:,0],tf_p1[:,1],tf_p1[:,2], c="green")
+    ax.scatter(p2[:,0],p2[:,1],p2[:,2], c="red")
     if lines:
-        for i in range(d.n_landmarks):
-            # print(f"GT:{gtposes[i]} \nES:{tf_poses[i]}")
-            xs = [tf_poses[i,0], gtposes[i,0]]
-            ys = [tf_poses[i,1], gtposes[i,1]]
-            zs = [tf_poses[i,2], gtposes[i,2]]
+        for i in range(p1.shape[0]):
+            print(f"GT:{p2[i]} ES:{tf_p1[i]} OR:{p1[i]}")
+            xs = [tf_p1[i,0], p2[i,0]]
+            ys = [tf_p1[i,1], p2[i,1]]
+            zs = [tf_p1[i,2], p2[i,2]]
 
             ax.plot(xs,ys,zs, c="black")
 
@@ -76,6 +78,7 @@ def visualize_H(H: np.ndarray, filename="H"):
     H_to_show = np.where(H>0, 1,0)
     plt.matshow(H_to_show)
     plt.savefig(f"{plot_path}/{filename}.png")
+    plt.close()
 
 
 if __name__ == "__main__":

@@ -31,10 +31,12 @@ def eight_point_LS( points_i: np.ndarray, points_j: np.ndarray):
 
     return E, None
 
+
+# TODO this is WRONG use cv2 for now
 def decompose_E(E):
     assert(E.shape == (3,3))
 
-    _, S, Vt = np.linalg.svd(E, full_matrices=True)
+    U, S, Vt = np.linalg.svd(E, full_matrices=True)
 
     # rearranging matrix
     W = np.array([
@@ -66,10 +68,10 @@ def unskew(s):
 def t2v(T: np.ndarray)->np.ndarray:
     assert T.shape==(4,4)
 
-    v = np.zeros(6, dtype=T.dtype)
+    v = np.zeros(7, dtype=T.dtype)
 
     v[:3] = T[:3,3]
-    v[3:] = R.from_matrix(T[:3,:3]).as_quat()[:-1] # spare the last component
+    v[3:] = R.from_matrix(T[:3,:3]).as_euler("XYZ") # spare the last component
 
     return v
 
@@ -79,17 +81,15 @@ def v2t(v: np.ndarray)->np.ndarray:
     T = np.eye(4)
     T[:3,3] = v[:3]
 
-    quat = complete_quaternion(v[3:])
-
-    T[:3,:3] = R.from_quat(quat).as_matrix()
+    T[:3,:3] = R.from_euler("XYZ",v[3:]).as_matrix()
 
     return T
 
 
 def generate_fake_data(path, n_cameras, n_landmarks, observation_noise=0.01):
     # generate a dataset containing noise free data
-    bounds_x = (-10,10)
-    bounds_y = (-10,10)
+    bounds_x = (0,10)
+    bounds_y = (0,10)
     bounds_z = (0,10)
 
     # scatter landmarks
@@ -125,7 +125,7 @@ def generate_fake_data(path, n_cameras, n_landmarks, observation_noise=0.01):
     for camera_id in range(n_cameras):
         # each camera observes some landmarks
         observed_keypoints[camera_id] = {}
-        n_observed = random.randint(0,n_landmarks//3) + n_landmarks//3
+        n_observed = random.randint(0,n_landmarks//3) + n_landmarks//2
 
         observed_landmarks_ids = random.sample(range(n_landmarks), k=n_observed)
 
@@ -165,10 +165,12 @@ def v2s(v: np.ndarray)->np.ndarray:
     assert v.reshape(-1).shape == (7,)
 
     T = v2t(v[:-1])
-    T[3,3] = np.exp(-v[-1])
+    T[3,3] = np.exp(v[-1])
     return T
 
 def complete_quaternion(q:np.ndarray)->np.ndarray:
+    # print("norm:", q, np.linalg.norm(q))
+    assert np.linalg.norm(q) <= 1.0
     out = np.zeros(4, dtype=q.dtype)
     out[:-1] = q.copy()
     out[-1] = np.sqrt(1 - np.dot(q,q))
