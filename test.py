@@ -204,8 +204,8 @@ if __name__ == "__main__":
         d_gt = Dataset(BA_path, landmark_path, ground_truth=True)
 
 
-    eval_solutions(d,d_gt)
-    eval_landmarks(d,d_gt)
+    # eval_solutions(d,d_gt)
+    # eval_landmarks(d,d_gt)
 
     pairs = find_pairs(d, min_overlap=30)
     # viz.visualize_landmarks(d,d_gt)
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     eval_landmarks(d,d_gt)
 
     # viz.visualize_landmarks(d,d_gt,lines=True)
-    b = BA(d, n_iters=10, damping=2)
+    b = BA(d, n_iters=4, damping=2)
     b._solve()
     
     # viz.visualize_H(b._build_H_b()[0])
