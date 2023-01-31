@@ -47,9 +47,10 @@ def visualize_landmarks(d: Dataset, d_gt:Dataset, lines=True):
 
         i+=1
     sicp_plot(poses,gtposes,lines)
+    plt.show()
 
 def sicp_plot(p1,p2, lines=True):
-    X, chi_stats = sicp(p1,p2, n_iters=1000, damping=100, threshold=1)
+    X, chi_stats = sicp(p1,p2, n_iters=100, damping=100, threshold=1)
     ax = plt.axes(projection='3d')
     print(X)
     t = X[:3,3]
@@ -71,7 +72,7 @@ def sicp_plot(p1,p2, lines=True):
 
             ax.plot(xs,ys,zs, c="black")
 
-    plt.show()
+
 
 def visualize_H(H: np.ndarray, filename="H"):
     import matplotlib.pyplot as plt
@@ -79,6 +80,75 @@ def visualize_H(H: np.ndarray, filename="H"):
     plt.matshow(H_to_show)
     plt.savefig(f"{plot_path}/{filename}.png")
     plt.close()
+
+
+def plot_dataset(d: Dataset, d_gt: Dataset):
+    ax = plt.axes(projection='3d')
+
+
+    plt.axis("equal")
+    plt.xlim((-10,10))
+    
+    # find transform between landmarks 
+    gtposes = np.zeros((d_gt.n_landmarks,3))
+    poses = np.zeros((d.n_landmarks,3))
+    i=0
+    for gtpose,pose in zip(d_gt.landmark_poses.values(), d.landmark_poses.values()):
+        gtposes[i,:] = gtpose
+        poses[i,:] = pose
+
+        i+=1
+    X, chi_stats = sicp(poses,gtposes, n_iters=100, damping=100, threshold=1)
+
+    tp = X[:3,3]
+    Rp = X[:3,:3]
+    sp = X[3,3]
+
+    tf_p1 = ((Rp@poses.T).T + tp)*sp
+
+    ax.scatter(tf_p1[:,0],tf_p1[:,1],tf_p1[:,2], c="green")
+    ax.scatter(gtposes[:,0],gtposes[:,1],gtposes[:,2], c="red", alpha=0.3)
+    for idx in range(d.n_cameras):
+        t, R = d.get_camera_pose(idx)
+        camera_pose_tf = np.zeros((4,4))
+        camera_pose_tf[:3,:3] = Rp@R
+        camera_pose_tf[:3,3]  = Rp@t +tp
+        camera_pose_tf[3,3]   = sp
+        plot_camera_at(camera_pose_tf, ax, color="green")
+
+        t_gt, R_gt = d_gt.get_camera_pose(idx)
+        camera_pose_gt = np.zeros((4,4))
+        camera_pose_gt[:3,:3] = R_gt
+        camera_pose_gt[:3,3]  = t_gt
+        camera_pose_gt[3,3]   = 1
+        plot_camera_at(camera_pose_gt, ax, color="red", alpha=0.3)
+
+        xs = [sp*camera_pose_tf[0,3], camera_pose_gt[0,3]]
+        ys = [sp*camera_pose_tf[1,3], camera_pose_gt[1,3]]
+        zs = [sp*camera_pose_tf[2,3], camera_pose_gt[2,3]]
+        plt.xlim((-10,10))
+        plt.axis("equal")
+        ax.plot(xs,ys,zs, c="black")
+        
+
+    plt.xlim((-10,10))
+    plt.axis("equal")
+
+    plt.show()
+
+
+def plot_camera_at(T, plt, color="blue", alpha=1.0):
+    print(T)
+    frame = np.eye(3)
+    R = T[:3,:3]
+    # directions
+    x = R@frame[:,0]
+    y = R@frame[:,1]
+    z = R@frame[:,2]
+
+    t = T[3,3]*T[:3,3] # where is camera
+    
+    plt.quiver(t[0],t[1],t[2], x,y,z, color=color, alpha=alpha)
 
 
 if __name__ == "__main__":

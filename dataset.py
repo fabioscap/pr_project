@@ -57,6 +57,7 @@ class Dataset():
 
     def set_landmark_pose(self, i, t):
         if self.gt: return
+        
         self.landmark_poses[i] = t
 
     def get_direction(self, c_idx, l_idx=None):

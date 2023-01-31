@@ -3,7 +3,6 @@ from dataset import Dataset
 import viz
 from sfm1b.translation_init import TranslationInit
 from sfm1b.find_pairs import find_pairs
-from sfm1b.eight_point_ransac import ransac, ransac_opencv
 from sfm1b.bundle_adjustment import BA
 from sfm1b.triangulation import triangulate_landmarks, triangulate_lines
 from sfm1b.sicp import sicp
@@ -25,8 +24,8 @@ def test_eight_point(d: Dataset):
     
     # fill this with the observed directions
     for p in range(len(features)):
-        p1[p:] = d.observed_keypoints[i][features[p]]
-        p2[p:] = d.observed_keypoints[j][features[p]]
+        p1[p:] = d.get_direction(i,features[p])
+        p2[p:] = d.get_direction(j,features[p])
 
     E_ = eight_point(p1[0:8,:], p2[0:8,:])
     E_/=E_[2,2]
@@ -36,6 +35,8 @@ def test_eight_point(d: Dataset):
 
 def test_epipolar(d: Dataset):
     
+    errs = []
+
     i = 0
     j = 1
 
@@ -66,51 +67,25 @@ def test_epipolar(d: Dataset):
 
         err = p_i - p_j
 
-        print(err.T@err)
+        errs.append(err.T@err)
+    errs = np.array(errs)
+    print(f"{errs.mean()} +- {errs.std()}")
 
-
-def test_ransac(d: Dataset):
-    i = 0
-    j = 1
-    # id of overlapping features
-    features = list(d.feature_overlap(i,j))
-    features.sort()
-    p1 = np.zeros((len(features),3))
-    p2 = np.zeros((len(features),3))
-    
-    # fill this with the observed directions
-    for p in range(len(features)):
-        p1[p:] = d.observed_keypoints[i][features[p]]
-        p2[p:] = d.observed_keypoints[j][features[p]]
-    E_, inliers = ransac_opencv(p1, p2, threshold=1e-3)
-    print(f"inlier ratio in pair {i}-{j} {len(inliers) / len(features)}")
-    #import cv2
-    # cv2 wants 2D points, divide by z
-    #p1_norm = p1 / np.vstack((p1[:,2],p1[:,2],p1[:,2])).T
-    #p2_norm = p2 / np.vstack((p2[:,2],p2[:,2],p1[:,2])).T
-    #E, inliers = cv2.findEssentialMat(p1_norm[:,:2],p2_norm[:,:2], method=cv2.RANSAC, threshold=5e-3, prob=0.999)
-
-    
-    for i in range(len(features)):
-        #print(f"me, {(p1[i,:]@E_@p2[i,:]):5f}") 
-        #print("opencv,",(p2[i,:]@E@p1[i,:]))
-        pass   
-
-def eval_solutions(d: Dataset):
+def eval_solutions(d: Dataset, d_gt: Dataset):
     rotation_errors = []
     translation_ratio = []
     for i in range(d.n_cameras):
         for j in range(i+1, d.n_cameras):
             t_i, R_i = d.get_camera_pose(i)
             t_j, R_j = d.get_camera_pose(j)
-            t_i_gt, R_i_gt = d.get_camera_pose(i,gt=True)
-            t_j_gt, R_j_gt = d.get_camera_pose(j,gt=True)
+            t_i_gt, R_i_gt = d_gt.get_camera_pose(i)
+            t_j_gt, R_j_gt = d_gt.get_camera_pose(j)
 
             R_delta = R_i.T @ R_j
             R_delta_gt = R_i_gt.T @ R_j_gt
 
             rotation_error = np.trace(np.eye(3) - R_delta.T @ R_delta_gt)
-            # rotation_error_gt = np.trace(np.eye(3) - R_delta_gt.T @ R_delta_gt)
+
             rotation_errors.append(rotation_error)
 
             t_delta = R_i.T @ (t_j-t_i)
@@ -153,36 +128,105 @@ def test_triangulation():
     print(point)
 
 def test_sicp():
+    np.random.seed(1834913)
     n = 1000
-    noise = 0.0001
+    noise = 0.
     n_iters = 100
 
-    p1 = np.random.rand(n,3)
+    p1 = np.random.rand(n,3)*10
 
-    v = np.random.rand(7)
+    v = np.array([20.0, 1.0, -10.0, 1.57, 0.3, -1.6, -1])
     S = v2s(v)
-
+    print(S)
     p1_homog = np.hstack((p1, np.ones((p1.shape[0], 1), dtype=p1.dtype)))
     p2_homog = (S@p1_homog.T).T
     
-    p2 = p2_homog[:,:-1] / p2_homog[:,-1].reshape(-1,1)
-    p2 += np.random.rand(*p2.shape)*noise
+    p2 = p2_homog[:,:-1] * p2_homog[:,-1].reshape(-1,1)
+    p2 += (np.random.rand(*p2.shape)-0.5)*noise
 
     v_guess = v + np.array([-2,0.1,-0.2,-0.1,0.1,0.0,0.01])
     S_guess = v2s(v_guess)
 
-    X, chi_stats = sicp(p1,p2, n_iters=n_iters, damping=500, initial_guess=S)
-
+    X, chi_stats = sicp(p1,p2, n_iters=n_iters, damping=10, threshold=2.0)
+    np.set_printoptions(suppress=True)
+    print(X)
     import matplotlib.pyplot as plt
     plt.plot(range(n_iters),chi_stats)
+    plt.yscale("log")
     plt.show()
     
+
+def eval_landmarks(d: Dataset, d_gt: Dataset):
+    gtposes = np.zeros((d_gt.n_landmarks,3))
+    poses = np.zeros((d.n_landmarks,3))
+    i=0
+    for gtpose,pose in zip(d_gt.landmark_poses.values(), d.landmark_poses.values()):
+        gtposes[i,:] = gtpose
+        poses[i,:] = pose
+        i+=1
+    
+    X, chi_stats = sicp(poses,gtposes, n_iters=1000, damping=100, threshold=1)
+
+    t = X[:3,3]
+    R = X[:3,:3]
+    s = X[3,3]
+
+    tf_poses = ((R@poses.T).T + t)*s
+
+    rmse = 0.0
+
+    deltas = gtposes - tf_poses
+
+    for l in range(d.n_landmarks):
+        rmse += np.dot(deltas[l], deltas[l])
+
+    rmse = np.sqrt(rmse.sum() / d.n_landmarks)
+
+    print(f"rmse: {rmse}")
+    return rmse
 
 if __name__ == "__main__":
     path = "./1B-CameraSFM/dataset.txt"
     landmark_path = "./1B-CameraSFM/GT_landmarks.txt"
     BA_path = "./1B-CameraSFM/input_BA.txt" 
-    generate_fake_data("./fake_data", 10, 40, 0.)
-    d = Dataset("./fake_data/dataset.txt", "./fake_data/GT_landmarks.txt", ground_truth=True) 
+    
+    # generate_fake_data("./fake_data", 99, 86, 0.)
 
-    # d = Dataset(path, landmark_path, ground_truth=False)
+    dataset = "true" # "true" "fake" "ba"
+    if dataset == "fake":
+        d_gt = Dataset("./fake_data/dataset.txt", "./fake_data/GT_landmarks.txt", ground_truth=True) 
+        d = Dataset("./fake_data/dataset.txt", "./fake_data/GT_landmarks.txt", ground_truth=False) 
+    elif dataset == "true":
+        d = Dataset(path, landmark_path, ground_truth=False)
+        d_gt = Dataset(path, landmark_path, ground_truth=True)
+    elif dataset == "ba":
+        d = Dataset(BA_path, landmark_path, ground_truth=False)
+        d_gt = Dataset(BA_path, landmark_path, ground_truth=True)
+
+
+    eval_solutions(d,d_gt)
+    eval_landmarks(d,d_gt)
+
+    pairs = find_pairs(d, min_overlap=30)
+    # viz.visualize_landmarks(d,d_gt)
+
+    t = TranslationInit(d, pairs)
+    
+    # eval_solutions(d,d_gt)
+    triangulate_landmarks(d)
+    
+    eval_solutions(d,d_gt)
+    eval_landmarks(d,d_gt)
+
+    # viz.visualize_landmarks(d,d_gt,lines=True)
+    b = BA(d, n_iters=10, damping=2)
+    b._solve()
+    
+    # viz.visualize_H(b._build_H_b()[0])
+
+    eval_solutions(d,d_gt)
+    eval_landmarks(d,d_gt)
+
+    viz.plot_dataset(d,d_gt)
+    
+    
