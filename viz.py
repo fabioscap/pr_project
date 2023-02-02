@@ -138,7 +138,6 @@ def plot_dataset(d: Dataset, d_gt: Dataset):
 
 
 def plot_camera_at(T, plt, color="blue", alpha=1.0):
-    print(T)
     frame = np.eye(3)
     R = T[:3,:3]
     # directions
