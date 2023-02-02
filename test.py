@@ -108,6 +108,8 @@ def eval_solutions(d: Dataset, d_gt: Dataset):
     # numbers should be equal with low std
     print(f"translation ratios: {np.mean(translation_ratio, axis=0)} +- {np.std(translation_ratio, axis=0)}")
  
+    return rotation_errors, translation_ratio
+
 def test_triangulation():
     # two lines
     t1 = np.zeros(3)
@@ -189,11 +191,10 @@ if __name__ == "__main__":
     path = "./1B-CameraSFM/dataset.txt"
     landmark_path = "./1B-CameraSFM/GT_landmarks.txt"
     BA_path = "./1B-CameraSFM/input_BA.txt" 
-    
-    # generate_fake_data("./fake_data", 99, 86, 0.)
 
     dataset = "true" # "true" "fake" "ba"
     if dataset == "fake":
+        #generate_fake_data("./fake_data", 99, 86, 0.01)
         d_gt = Dataset("./fake_data/dataset.txt", "./fake_data/GT_landmarks.txt", ground_truth=True) 
         d = Dataset("./fake_data/dataset.txt", "./fake_data/GT_landmarks.txt", ground_truth=False) 
     elif dataset == "true":
@@ -202,31 +203,20 @@ if __name__ == "__main__":
     elif dataset == "ba":
         d = Dataset(BA_path, landmark_path, ground_truth=False)
         d_gt = Dataset(BA_path, landmark_path, ground_truth=True)
+    elif dataset == "output":
+        d = Dataset("./output/dataset.txt", "./output/landmarks.txt", ground_truth=False)
+        d_gt = Dataset("./output/dataset.txt", landmark_path, ground_truth=True)
 
-
-    # eval_solutions(d,d_gt)
-    # eval_landmarks(d,d_gt)
-
+    
     pairs = find_pairs(d, min_overlap=30)
-    # viz.visualize_landmarks(d,d_gt)
-
     t = TranslationInit(d, pairs)
-    
-    # eval_solutions(d,d_gt)
     triangulate_landmarks(d)
-    
-    eval_solutions(d,d_gt)
-    eval_landmarks(d,d_gt)
 
-    # viz.visualize_landmarks(d,d_gt,lines=True)
-    b = BA(d, n_iters=4, damping=2)
+    b = BA(d, n_iters=3, damping=0.1)
     b._solve()
-    
-    # viz.visualize_H(b._build_H_b()[0])
 
     eval_solutions(d,d_gt)
-    eval_landmarks(d,d_gt)
-
-    viz.plot_dataset(d,d_gt)
     
+    viz.plot_dataset(d,d_gt)
+
     
