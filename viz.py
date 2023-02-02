@@ -17,6 +17,7 @@ def plot_overlap(d:Dataset):
     plt.xlabel("number of overlaps")
     plt.ylabel("occurrences")
     plt.savefig(f"{plot_path}/overlap.png")
+    plt.close()
 
 def plot_pairs(d: Dataset, pairs: list[Pair]):
     pair_matrix = np.zeros((d.n_cameras,d.n_cameras), dtype=np.uint8)
@@ -30,6 +31,7 @@ def plot_pairs(d: Dataset, pairs: list[Pair]):
     
     plt.matshow(pair_matrix)
     plt.savefig(f"{plot_path}/pairs.png")
+    plt.close()
 
 def visualize_landmarks(d: Dataset, d_gt:Dataset, lines=True):
     import matplotlib.pyplot as plt
@@ -48,6 +50,7 @@ def visualize_landmarks(d: Dataset, d_gt:Dataset, lines=True):
         i+=1
     sicp_plot(poses,gtposes,lines)
     plt.show()
+    plt.close()
 
 def sicp_plot(p1,p2, lines=True):
     X, chi_stats = sicp(p1,p2, n_iters=100, damping=100, threshold=1)
@@ -106,8 +109,8 @@ def plot_dataset(d: Dataset, d_gt: Dataset):
 
     tf_p1 = ((Rp@poses.T).T + tp)*sp
 
-    ax.scatter(tf_p1[:,0],tf_p1[:,1],tf_p1[:,2], c="green")
-    ax.scatter(gtposes[:,0],gtposes[:,1],gtposes[:,2], c="red", alpha=0.3)
+    ax.scatter(tf_p1[:,0],tf_p1[:,1],tf_p1[:,2], c="green", label="EST")
+    ax.scatter(gtposes[:,0],gtposes[:,1],gtposes[:,2], c="red", alpha=0.3, label="GT")
     for idx in range(d.n_cameras):
         t, R = d.get_camera_pose(idx)
         camera_pose_tf = np.zeros((4,4))
@@ -129,12 +132,14 @@ def plot_dataset(d: Dataset, d_gt: Dataset):
         plt.xlim((-10,10))
         plt.axis("equal")
         ax.plot(xs,ys,zs, c="black")
-        
+
+
 
     plt.xlim((-10,10))
     plt.axis("equal")
-
+    plt.legend(loc="best")
     plt.show()
+    plt.close()
 
 
 def plot_camera_at(T, plt, color="blue", alpha=1.0):

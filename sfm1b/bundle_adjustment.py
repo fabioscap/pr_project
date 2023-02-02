@@ -112,7 +112,7 @@ class BA():
             H, b, chi2, inliers= self._build_H_b()
             chi2 = np.array(chi2)
             print(f"{iter}, {inliers}, {chi2.sum()}, {chi2.mean()}+-{chi2.std()}", end="\r")
-            self.chi_stats.append(chi2)
+            self.chi_stats.append(sum(chi2))
 
             # block the first camera pose
             H_ = H[self.d.c_pose_size:, self.d.c_pose_size:]
