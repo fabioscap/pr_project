@@ -134,6 +134,7 @@ class Dataset():
         camera_pose = np.zeros((4,4),dtype=Dataset.dtype)
         camera_pose[:3,:3] = camera_r
         camera_pose[:3,3]  = camera_t
+        camera_pose[3,3]   = 1.0
 
         self.camera_poses[camera_id] = camera_pose
 
@@ -151,3 +152,44 @@ class Dataset():
         l_id = int(line[2])
         direction = np.array(line[3:], dtype=Dataset.dtype)
         camera_dict[l_id] = direction
+
+def gen_output(d:Dataset, d_gt:Dataset, output_folder="./output"):
+    import os
+
+    camera_path = os.path.join(output_folder,"dataset.txt")
+    landmark_path = os.path.join(output_folder,"landmarks.txt")
+
+    with open(landmark_path,"w") as file:
+        for idx in d.landmark_poses.keys():
+            pose = d.landmark_poses[idx]
+
+            line = f"L: {idx} {pose[0]} {pose[1]} {pose[2]}\n"
+            file.write(line)
+    with open(camera_path, "w") as file:
+
+        for idx in d.camera_poses.keys():
+            t, r = d.get_camera_pose(idx)
+            q = R.from_matrix(r).as_quat()
+            if q[-1] < 0:
+                q = -q[:-1]
+            else:
+                q  = q[:-1]
+
+            t_gt, r_gt = d_gt.get_camera_pose(idx)
+
+            q_gt = R.from_matrix(r_gt).as_quat()
+            if q_gt[-1] < 0:
+                q_gt = -q_gt[:-1]
+            else:
+                q_gt  = q_gt[:-1]
+
+
+            line = f"KF: {idx} {t_gt[0]} {t_gt[1]} {t_gt[2]} {q_gt[0]} {q_gt[1]} {q_gt[2]} {t[0]}    {t[1]}    {t[2]}    {q[0]}    {q[1]}    {q[2]} \n"
+            file.write(line)
+            count = 0
+            for l in d.get_direction(idx):
+                direction = d.get_direction(idx,l)
+
+                line = f"F: {count} {l} {direction[0]} {direction[1]} {direction[2]}\n"
+                file.write(line)
+                count+=1
