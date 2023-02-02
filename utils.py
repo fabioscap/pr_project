@@ -176,3 +176,28 @@ def complete_quaternion(q:np.ndarray)->np.ndarray:
     out[-1] = np.sqrt(1 - np.dot(q,q))
 
     return out
+
+def lines_intersection(t_i, R_i, d_i, t_j, R_j, d_j):
+    # transform directions in world frame
+    d_i_w = R_i@d_i
+    d_j_w = R_j@d_j
+    
+    # block 15 slide 3
+
+    delta_D = np.stack((d_i_w, -d_j_w), axis=-1)
+    assert delta_D.shape == (3,2)
+
+    delta_p = t_i-t_j 
+
+    s_star = - np.linalg.inv(delta_D.T@delta_D) @ delta_D.T @ delta_p
+
+    """
+    # evaluate the lines at those points and compute the difference
+    p_i = t_i + d_i_w * s_star[0]
+    p_j = t_j + d_j_w * s_star[1]
+
+    err = p_i - p_j
+    point = (p_i + p_j) / 2
+    """
+
+    return s_star[0], s_star[1]
