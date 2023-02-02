@@ -1,3 +1,5 @@
+# NOT USED, THERE IS NO BAD ASSOCIATION
+
 import numpy as np
 from utils import eight_point, eight_point_LS
 import random, math
