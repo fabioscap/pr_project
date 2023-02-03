@@ -37,3 +37,5 @@ with open("./output/stats.txt","w") as file:
    file.write(f"landmark rmse: {landmark_rmse}\n")
 gen_output(d,d_gt, output_path)
 
+import viz 
+viz.plot_dataset(d, d_gt)
