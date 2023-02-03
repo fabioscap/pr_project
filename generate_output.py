@@ -15,7 +15,7 @@ d = Dataset(path, landmark_path, ground_truth=False)
 d_gt = Dataset(path, landmark_path, ground_truth=True)
 
 
-pairs = find_pairs(d, min_overlap=25)
+pairs = find_pairs(d, min_overlap=33)
 t = TranslationInit(d, pairs)
 
 triangulate_landmarks(d)
@@ -32,8 +32,8 @@ rotation_errors, translation_ratio = eval_solutions(d,d_gt)
 landmark_rmse = eval_landmarks(d, d_gt)
 
 with open("./output/stats.txt","w") as file:
-    file.write(f"rotation errors: {rotation_errors.mean()}+-{rotation_errors.std()}\n")
-    file.write(f"translation ratios: {np.mean(translation_ratio, axis=0)} +- {np.std(translation_ratio, axis=0)}\n")
-    file.write(f"landmark rmse: {landmark_rmse}\n")
+   file.write(f"rotation errors: {rotation_errors.mean()}+-{rotation_errors.std()}\n")
+   file.write(f"translation ratios: {np.mean(translation_ratio, axis=0)} +- {np.std(translation_ratio, axis=0)}\n")
+   file.write(f"landmark rmse: {landmark_rmse}\n")
 gen_output(d,d_gt, output_path)
 

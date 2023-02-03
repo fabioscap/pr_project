@@ -57,7 +57,7 @@ class TranslationInit():
         _, _, Vt = np.linalg.svd(self.H_)
         self.t_ = Vt[-1,:] # eigvector of the smallest singular value
 
-        self.t[3:] =   self.t_* 100
+        self.t[3:] =   self.t_*100 # better convergence on sicp
 
         return self.t
 

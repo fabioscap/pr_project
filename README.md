@@ -12,6 +12,6 @@ I chose to formulate a linear LS problem for each landmark. The error function i
 3) **Doing Bundle Adjustment**
 To refine the estimate I did some iteration of bundle adjustment, which means adjusting the pose of the cameras and landmarks together. The algorithm is the same as the one published in the course repo. It finds a minima in few iterations (3). 
 
-To generate the output files create a Python virtual environment and run `generate_output.py`. The files will be in the `output` folder. In the `plots` folder there are also some images such as the ground truth and the final estimate overlapped.
+To generate the output files create a Python virtual environment and run `generate_output.py`. The files will be in the `output` folder.
 
 ![Alt text](./plots/datasets.png "dataset")
