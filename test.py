@@ -90,23 +90,22 @@ def eval_solutions(d: Dataset, d_gt: Dataset):
 
             t_delta = R_i.T @ (t_j-t_i)
             norm = np.linalg.norm(t_delta)
-            if norm != 0.0:
-                t_delta /= np.linalg.norm(t_delta)
-            
             t_delta_gt = R_i_gt.T @ (t_j_gt-t_i_gt)
-            norm = np.linalg.norm(t_delta_gt)
-            if norm != 0.0:
-                t_delta_gt /= np.linalg.norm(t_delta_gt)
+            norm_gt = np.linalg.norm(t_delta_gt)
+            if norm and norm_gt == 0:
 
-            ratio = (t_delta_gt / t_delta)
-            translation_ratio.append(ratio)
+                translation_ratio.append(1.0)
+            else:
+                ratio = (norm_gt / norm)
+                translation_ratio.append(ratio)
+            
             
     rotation_errors = np.array(rotation_errors)
     # numbers should be zero
     print(f"rotation error: {np.mean(rotation_errors)} +- {np.std(rotation_errors)}")
     translation_ratio = np.array(translation_ratio)
-    # numbers should be equal with low std
-    print(f"translation ratios: {np.mean(translation_ratio, axis=0)} +- {np.std(translation_ratio, axis=0)}")
+    # only std should matter
+    print(f"translation ratios: {np.mean(translation_ratio)} +- {np.std(translation_ratio)}")
  
     return rotation_errors, translation_ratio
 
