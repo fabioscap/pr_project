@@ -14,6 +14,8 @@ I chose to formulate a linear LS problem for each landmark. The error function i
 3) **Doing Bundle Adjustment**
 To refine the estimate I did some iteration of bundle adjustment, which means adjusting the pose of the cameras and landmarks together. The algorithm is the same as the one published in the course repo. It finds a minima in few iterations (3). 
 
-To generate the output files create a Python virtual environment and run `generate_output.py`. The files will be in the `output` folder.
+To generate the output files create a Python virtual environment and run `generate_output.py`. The files will be in the `output` folder. In this folder there are my camera poses and landmark estimates in a format similar to the input (estimates are the last 6 numbers) and error stats. 
+For the translation ratios the mean is not relevant, it's important that the std is close to $0$ to ensure that the ratio is the same for all relative positions.
+
 
 ![Alt text](./plots/datasets.png "dataset")
