@@ -3,7 +3,9 @@
 
 1) **Initialize the translations**:
 I made use of the estimates provided by step 1a to write the **linear** constraint for each pair: 
-$$ e_{ij} = skew(t_{ij})R_i^T(\mathbf{t_i}-\mathbf{t_j}) $$
+```math
+e_{ij} = skew(t_{ij})R_i^T(\mathbf{t_i}-\mathbf{t_j})
+```
 The solution is up to translation (3) and scale (1). To address this I fixed the first camera position and extracted the **null space of H**, which is then a single vector. This vector represents the relative translation of cameras with respect to the first one up to a scale. The original scale cannot be recovered but it is important to disambiguate the sign ($+t$ or $-t$). To do this I intersected some correspondences and checked that most of those happen at positive values for the ray parameter **s**. If that wasn't the case I flipped the sign of the translation vector.
 
 2) **Triangulate the landmarks**
